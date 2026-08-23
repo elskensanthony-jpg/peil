@@ -76,6 +76,22 @@ button{font:inherit; color:inherit; cursor:pointer}
 input,select,textarea{font:inherit; color:inherit}
 :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:var(--r-sm)}
 .num{font-variant-numeric:tabular-nums lining-nums; font-weight:600; color:var(--text)}
+/* Elke bevestiging in de app loopt hierlangs. Onzichtbaar had geen zin: de
+   weigering "vul eerst je gewicht in" kwam nergens aan. */
+.check.auto{display:flex; align-items:center; gap:10px; min-height:44px; color:var(--text-3)}
+.check.auto.ja{color:var(--text)}
+.check.auto .vink{width:22px; text-align:center; font-weight:700; color:var(--line-2)}
+.check.auto.ja .vink{color:var(--ok)}
+.check.auto .tgt{margin-left:auto}
+.rec summary .nudag,.rec summary .staat{flex:0 0 auto; margin-left:8px; white-space:nowrap}
+.rec summary .nudag{min-height:38px; padding:0 11px}
+.toast{position:fixed; left:50%; transform:translateX(-50%) translateY(8px);
+  bottom:calc(74px + env(safe-area-inset-bottom, 0px)); z-index:60;
+  width:max-content; max-width:min(92vw,420px); padding:11px 14px; border-radius:3px;
+  background:var(--text); color:var(--bg); font-size:var(--fs-300); font-weight:500;
+  line-height:1.35; text-align:left; box-shadow:0 6px 24px rgba(0,0,0,.28);
+  pointer-events:none; transition:opacity .16s, transform .16s}
+@media (prefers-reduced-motion:reduce){ .toast{transition:none} }
 .sr{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
     clip-path:inset(50%); white-space:nowrap; border:0}
 
@@ -198,7 +214,7 @@ label.fld{display:flex; flex-direction:column; gap:var(--s1); font-size:var(--fs
 .stat .v{font-family:"IBM Plex Mono",ui-monospace,monospace; font-weight:600; font-size:26px;
   line-height:1.05; font-variant-numeric:tabular-nums; margin-top:auto; letter-spacing:-.02em}
 .stat .u{font-size:var(--fs-200); font-weight:600; color:var(--text-3); margin-left:2px; letter-spacing:0}
-.sesskop{position:sticky; top:0; z-index:18; display:flex; align-items:center; gap:var(--s3);
+.sesskop{position:sticky; top:var(--kop, 0px); z-index:18; display:flex; align-items:center; gap:var(--s3);
   background:var(--panel); border:1px solid var(--line); border-radius:var(--r-sm);
   padding:8px 11px; margin-bottom:var(--s3); box-shadow:var(--shadow)}
 .sesskop .nm{font-family:Archivo,"IBM Plex Sans",sans-serif; font-weight:700; font-size:var(--fs-300)}
@@ -451,7 +467,7 @@ svg .dot{fill:var(--accent)}
     <div id="dateBar"></div>
   </header>
   <main id="view" tabindex="-1"></main>
-  <div id="live" class="sr" role="status" aria-live="polite"></div>
+  <div id="live" class="toast" role="status" aria-live="polite" style="opacity:0;transform:translateX(-50%) translateY(8px)"></div>
 </div>
 <div id="timerHost"></div>
 <nav class="tabs" id="tabs" aria-label="Hoofdnavigatie"></nav>
@@ -469,90 +485,90 @@ svg .dot{fill:var(--accent)}
 // unit: pair = per hand (2 dumbbells) | single = één dumbbell | bw = lichaamsgewicht
 // spoor: "A" = nog laadbaar onder 20 kg/hand | "B" = zit op het plafond, stuur met techniek
 const EX = {
-  cs_row:     {nm:"Chest-supported incline row", sh:"CS row", unit:"pair", incr:2, spoor:"A", anim:"cs_row",
+  cs_row:     {nm:"Chest-supported incline row", sh:"CS row", unit:"pair", spoor:"A",
     cue:"Bank op 30–40°, borst tegen de bank. De romp is uitgeschakeld, dus je kunt tot dicht bij falen gaan zonder je lage rug te belasten."},
-  db_bench:   {nm:"Vlakke dumbbell press", fotoNota:"Let op het verschil met de foto: zak niet dieper dan tot je bovenarmen op romphoogte zijn.", sh:"Bench", unit:"pair", incr:2, spoor:"A", anim:"db_bench",
+  db_bench:   {nm:"Vlakke dumbbell press", fotoNota:"Let op het verschil met de foto: zak niet dieper dan tot je bovenarmen op romphoogte zijn.", sh:"Bench", unit:"pair", spoor:"A",
     cue:"Schouderbladen ingetrokken, ellebogen ±45°. Zak tot je bovenarmen op romphoogte zijn en niet dieper, daaronder komt de spanning op de voorkant van je schouderkapsel."},
-  db_incline: {nm:"Incline dumbbell press", sh:"Incline", unit:"pair", incr:2, spoor:"A", anim:"db_incline",
+  db_incline: {nm:"Incline dumbbell press", sh:"Incline", unit:"pair", spoor:"A",
     cue:"Bank op 30–40°. Volle stretch onderaan, dumbbells niet tegen elkaar tikken bovenaan."},
-  floor_press:{nm:"Dumbbell floor press", sh:"Floor press", unit:"pair", incr:2, spoor:"A", anim:"floor_press",
+  floor_press:{nm:"Dumbbell floor press", sh:"Floor press", unit:"pair", spoor:"A",
     cue:"Je bovenarmen raken de grond, korte pauze, dan drukken. De vloer begrenst de beweging precies daar waar je voorste schouder anders overbelast raakt, daarom staat deze in blok 1 en 2 in plaats van de vlakke bankdruk."},
-  db_row:     {nm:"One-arm dumbbell row", sh:"One-arm row", unit:"single", incr:2, spoor:"A", anim:"db_row", perSide:true,
+  db_row:     {nm:"One-arm dumbbell row", sh:"One-arm row", unit:"single", spoor:"A", perSide:true,
     cue:"Hand en knie op de bank, rug vlak. Trek de elleboog naar de heup, geen romprotatie."},
-  bo_row:     {nm:"Bent-over row, twee dumbbells", sh:"Bent-over row", unit:"pair", incr:2, spoor:"A", anim:"db_row",
+  bo_row:     {nm:"Bent-over row, twee dumbbells", sh:"Bent-over row", unit:"pair", spoor:"A",
     cue:"Heupscharnier tot je romp bijna horizontaal staat, rug vlak, knieën licht gebogen. Trek beide ellebogen naar de heupen. Dit is je zwaarste trekoefening: twee dumbbells is 40 kg totaal, het dubbele van de one-arm row."},
-  db_ohp:     {nm:"Zittende dumbbell shoulder press", fotoNota:"De foto toont een greep met de handpalmen naar voren. Draai ze naar elkaar toe, neutrale greep is een stuk vriendelijker voor je voorste schouder.", sh:"Shoulder press", unit:"pair", incr:2, spoor:"A", anim:"db_ohp",
+  db_ohp:     {nm:"Zittende dumbbell shoulder press", fotoNota:"De foto toont een greep met de handpalmen naar voren. Draai ze naar elkaar toe, neutrale greep is een stuk vriendelijker voor je voorste schouder.", sh:"Shoulder press", unit:"pair", spoor:"A",
     cue:"Ribben laag, geen holle rug. Pols recht boven de elleboog."},
-  lat_raise:  {nm:"Lateral raise", sh:"Lateral raise", unit:"pair", incr:1, spoor:"B", anim:"lat_raise",
+  lat_raise:  {nm:"Lateral raise", sh:"Lateral raise", unit:"pair", spoor:"B",
     cue:"Lichte elleboogbuiging, stop op schouderhoogte, geen zwaai. Deze wordt met 20 kg nooit te licht."},
-  rear_fly:   {nm:"Rear delt fly op incline bank", sh:"Rear delt", unit:"pair", incr:1, spoor:"B", anim:"rear_fly",
+  rear_fly:   {nm:"Rear delt fly op incline bank", sh:"Rear delt", unit:"pair", spoor:"B",
     cue:"Borst op de schuine bank. Duimen omlaag, breed uit elkaar, niet de schouderbladen dichtknijpen."},
-  tri_ext:    {nm:"Overhead triceps extensie", sh:"Triceps", unit:"single", incr:2, spoor:"A", anim:"tri_ext",
+  tri_ext:    {nm:"Overhead triceps extensie", sh:"Triceps", unit:"single", spoor:"A",
     cue:"Ellebogen dicht bij het hoofd, volledige rek onderaan."},
-  skull:      {nm:"Dumbbell skull crusher", sh:"Skull crusher", unit:"pair", incr:1, spoor:"A", anim:"skull",
+  skull:      {nm:"Dumbbell skull crusher", sh:"Skull crusher", unit:"pair", spoor:"A",
     cue:"Bovenarm iets naar achteren gekanteld, dumbbells naast de oren laten zakken."},
-  db_curl:    {nm:"Incline dumbbell curl", sh:"Incline curl", unit:"pair", incr:1, spoor:"A", anim:"db_curl",
+  db_curl:    {nm:"Incline dumbbell curl", sh:"Incline curl", unit:"pair", spoor:"A",
     cue:"Op de schuine bank hangen de armen achter het lichaam: maximale rek op de biceps."},
-  hammer_curl:{nm:"Hammer curl", sh:"Hammer curl", unit:"pair", incr:1, spoor:"A", anim:"hammer_curl",
+  hammer_curl:{nm:"Hammer curl", sh:"Hammer curl", unit:"pair", spoor:"A",
     cue:"Neutrale greep, ellebogen stil, geen schouderbeweging."},
-  pullover:   {nm:"Dumbbell pullover", sh:"Pullover", unit:"single", incr:2, spoor:"A",
+  pullover:   {nm:"Dumbbell pullover", sh:"Pullover", unit:"single", spoor:"A",
     cue:"Dwars over de bank, alleen je bovenrug erop, heupen laag. Eén dumbbell met beide handen tegen de bovenkant. Armen bijna gestrekt naar achteren zakken en met je lat terugtrekken, niet met je armen. Dit is de enige oefening in je plan waarin je schouder van volledige buiging naar strekking gaat, dus in blok 1 en 2 zak je maar tot je bovenarmen op oorhoogte staan, en pas na de poort ga je dieper."},
-  scap_pu:    {nm:"Scapulaire push-up", sh:"Push-up plus", unit:"bw", incr:0, spoor:"B",
+  scap_pu:    {nm:"Scapulaire push-up", sh:"Push-up plus", unit:"bw", spoor:"B",
     cue:"Push-up-positie op de handles of met je handen op de bank, armen gestrekt en gestrekt houden. Laat alleen je borstbeen tussen je schouderbladen zakken en duw jezelf dan zo ver mogelijk weg, je rug bol. Dat wegduwen is de serratus, de spier die je schouderblad tegen je ribben houdt. Bij een bureaujob is die zwak, en dat is een van de gangbaarste oorzaken van pijn aan de voorkant van je schouder."},
-  tibialis:   {nm:"Tibialis raise tegen de muur", sh:"Tibialis", unit:"bw", incr:0, spoor:"B",
+  tibialis:   {nm:"Tibialis raise tegen de muur", sh:"Tibialis", unit:"bw", spoor:"B",
     cue:"Rug tegen de muur, voeten dertig centimeter naar voren, hielen op de grond. Trek je tenen zo hoog mogelijk op en laat ze traag zakken. Dit is de spier die je landing dempt bij het springtouw, en de zwakke plek waar scheenbeenpijn vandaan komt."},
-  pushup:     {nm:"Deficit push-up op handles", fotoNota:"De foto toont de gewone push-up. Jij doet hem op de handles zodat je dieper kunt zakken dan de vloer toelaat.", sh:"Push-up", unit:"bw", incr:0, spoor:"B", anim:"pushup",
+  pushup:     {nm:"Deficit push-up op handles", fotoNota:"De foto toont de gewone push-up. Jij doet hem op de handles zodat je dieper kunt zakken dan de vloer toelaat.", sh:"Push-up", unit:"bw", spoor:"B",
     cue:"Op de handles zak je dieper dan de vloer toelaat. 3 seconden zakken. Zwaarder: voeten op de bank, rugzak om."},
-  bulgarian:  {nm:"Bulgarian split squat", fotoNota:"De foto toont de split squat met de achtervoet op de grond. Bij jou staat die op de bank, dat maakt hem aanzienlijk zwaarder.", sh:"Split squat", unit:"pair", incr:2, spoor:"A", perSide:true,
+  bulgarian:  {nm:"Bulgarian split squat", fotoNota:"De foto toont de split squat met de achtervoet op de grond. Bij jou staat die op de bank, dat maakt hem aanzienlijk zwaarder.", sh:"Split squat", unit:"pair", spoor:"A", perSide:true,
     cue:"Achtervoet op de bank, voorste scheenbeen licht voorover. Dit is je zwaarste beenoefening, hier zit je progressie."},
-  bss_ffe:    {nm:"Split squat, voorvoet verhoogd", fotoNota:"De foto toont de gewone split squat. Bij deze variant staat je achtervoet op de bank én je voorvoet 10 cm verhoogd.", sh:"FFE split squat", unit:"pair", incr:2, spoor:"A", anim:"bss_ffe", perSide:true,
+  bss_ffe:    {nm:"Split squat, voorvoet verhoogd", fotoNota:"De foto toont de gewone split squat. Bij deze variant staat je achtervoet op de bank én je voorvoet 10 cm verhoogd.", sh:"FFE split squat", unit:"pair", spoor:"A", perSide:true,
     cue:"Voorvoet op 10 cm. Grotere bewegingsuitslag en 2 seconden pauze onderaan."},
-  db_rdl:     {nm:"Dumbbell RDL vanaf verhoging", fotoNota:"De foto toont de stiff-legged deadlift, dezelfde beweging. Ga wel op een verhoging van 5 tot 10 cm staan zodat je dieper kunt zakken.", sh:"RDL", unit:"pair", incr:2, spoor:"A", anim:"db_rdl",
+  db_rdl:     {nm:"Dumbbell RDL vanaf verhoging", fotoNota:"De foto toont de stiff-legged deadlift, dezelfde beweging. Ga wel op een verhoging van 5 tot 10 cm staan zodat je dieper kunt zakken.", sh:"RDL", unit:"pair", spoor:"A",
     cue:"Sta 5–10 cm hoger zodat je verder kunt zakken. Heupscharnier, knieën licht gebogen, 3 seconden zakken."},
-  bstance_rdl:{nm:"B-stance RDL", fotoNota:"Zelfde beweging als op de foto, maar met je achterste voet als kickstand op de tenen en 80% van het gewicht op je voorste been.", sh:"B-stance RDL", unit:"pair", incr:2, spoor:"A", anim:"bstance_rdl", perSide:true,
+  bstance_rdl:{nm:"B-stance RDL", fotoNota:"Zelfde beweging als op de foto, maar met je achterste voet als kickstand op de tenen en 80% van het gewicht op je voorste been.", sh:"B-stance RDL", unit:"pair", spoor:"A", perSide:true,
     cue:"Achterste voet als kickstand op de tenen, 80% van het gewicht op het voorste been."},
-  sl_rdl:     {nm:"Single-leg RDL", fotoNota:"De foto toont een kettlebell. Gebruik een dumbbell; de beweging is identiek.", sh:"1-been RDL", unit:"single", incr:2, spoor:"A", anim:"sl_rdl", perSide:true,
+  sl_rdl:     {nm:"Single-leg RDL", fotoNota:"De foto toont een kettlebell. Gebruik een dumbbell; de beweging is identiek.", sh:"1-been RDL", unit:"single", spoor:"A", perSide:true,
     cue:"Standbeen licht gebogen, heupen recht houden, rustig tempo."},
-  goblet_heel:{nm:"Hiel-verhoogde goblet squat", fotoNota:"De foto toont de gewone goblet squat. Zet je hielen op een boek of schijf voor de variant in dit plan.", sh:"Goblet squat", unit:"single", incr:2, spoor:"A", anim:"goblet_heel",
+  goblet_heel:{nm:"Hiel-verhoogde goblet squat", fotoNota:"De foto toont de gewone goblet squat. Zet je hielen op een boek of schijf voor de variant in dit plan.", sh:"Goblet squat", unit:"single", spoor:"A",
     cue:"Hielen op een boek of schijf. Tempo 3-0-1: drie seconden zakken. Met 20 kg is dit assistentie, geen hoofdoefening."},
-  rev_lunge:  {nm:"Dumbbell reverse lunge", sh:"Reverse lunge", unit:"pair", incr:2, spoor:"A", anim:"rev_lunge", perSide:true,
+  rev_lunge:  {nm:"Dumbbell reverse lunge", sh:"Reverse lunge", unit:"pair", spoor:"A", perSide:true,
     cue:"Stap achteruit, knie zakt richting de grond, romp rechtop."},
-  step_up:    {nm:"Step-up op de bank", sh:"Step-up", unit:"pair", incr:2, spoor:"A", anim:"step_up", perSide:true,
+  step_up:    {nm:"Step-up op de bank", sh:"Step-up", unit:"pair", spoor:"A", perSide:true,
     cue:"Duw volledig door het voorste been, gebruik het achterste been niet om af te zetten."},
-  sl_hip_thrust:{nm:"Eenbenige hip thrust", fotoNota:"De foto toont de eenbenige glute bridge op de grond. Bij jou liggen je schouders op de bank, wat de bewegingsuitslag flink vergroot.", sh:"1-been hip thrust", unit:"single", incr:2, spoor:"A", anim:"sl_hip_thrust", perSide:true,
+  sl_hip_thrust:{nm:"Eenbenige hip thrust", fotoNota:"De foto toont de eenbenige glute bridge op de grond. Bij jou liggen je schouders op de bank, wat de bewegingsuitslag flink vergroot.", sh:"1-been hip thrust", unit:"single", spoor:"A", perSide:true,
     cue:"Schouderbladen op de bank, kin ingetrokken, bovenaan 1 seconde knijpen."},
-  hip_thrust: {nm:"Hip thrust met pauze", fotoNota:"De foto toont de barbellversie. Jij legt één dumbbell op je heupen.", sh:"Hip thrust", unit:"single", incr:2, spoor:"A", anim:"hip_thrust",
+  hip_thrust: {nm:"Hip thrust met pauze", fotoNota:"De foto toont de barbellversie. Jij legt één dumbbell op je heupen.", sh:"Hip thrust", unit:"single", spoor:"A",
     cue:"Twee seconden pauze bovenaan. Tweebenig met 20 kg is licht, daarom de pauze."},
-  leg_curl:   {nm:"Slider leg curl", fotoNota:"De foto gebruikt een bal. Jij gebruikt een handdoek of gladde doek op de vloer, zelfde beweging, zelfde spier.", sh:"Leg curl", unit:"bw", incr:0, spoor:"B",
+  leg_curl:   {nm:"Slider leg curl", fotoNota:"De foto gebruikt een bal. Jij gebruikt een handdoek of gladde doek op de vloer, zelfde beweging, zelfde spier.", sh:"Leg curl", unit:"bw", spoor:"B",
     cue:"Hakken op een handdoek of gladde doek, heupen hoog houden, hielen naar de billen trekken. Dit is de enige knieflexie in het plan."},
-  calf_1:     {nm:"Eenbenige staande calf raise", sh:"Kuit staand", unit:"single", incr:2, spoor:"A", anim:"calf_1", perSide:true,
+  calf_1:     {nm:"Eenbenige staande calf raise", sh:"Kuit staand", unit:"single", spoor:"A", perSide:true,
     cue:"Op één been is de belasting 72% hoger dan tweebenig. Volle rek onderaan, 1 seconde bovenaan, geen stuiteren."},
-  calf_seat:  {nm:"Zittende calf raise", sh:"Kuit zittend", unit:"pair", incr:2, spoor:"A", anim:"calf_seat",
+  calf_seat:  {nm:"Zittende calf raise", sh:"Kuit zittend", unit:"pair", spoor:"A",
     cue:"Dumbbells op de knieën. Gebogen knie traint de soleus, die krijgt van het springtouw het meest te verduren."},
-  ext_rot:    {nm:"Externe rotatie in zijligging", sh:"Externe rotatie", unit:"single", incr:1, spoor:"B", anim:"ext_rot", perSide:true,
+  ext_rot:    {nm:"Externe rotatie in zijligging", sh:"Externe rotatie", unit:"single", spoor:"B", perSide:true,
     cue:"Op je zij, bovenarm tegen je romp, elleboog 90°. Draai de onderarm omhoog. Heel licht: 2 tot 5 kg is genoeg. Dit traint de spieren die je schouderkop op zijn plaats houden."},
-  prone_y:    {nm:"Prone Y-raise op de schuine bank", fotoNota:"De foto toont de verwante reverse fly. Bij de Y-raise wijzen je duimen omhoog en gaan je armen schuin naar voren in een Y, niet recht opzij.", sh:"Y-raise", unit:"pair", incr:1, spoor:"B", anim:"prone_y",
+  prone_y:    {nm:"Prone Y-raise op de schuine bank", fotoNota:"De foto toont de verwante reverse fly. Bij de Y-raise wijzen je duimen omhoog en gaan je armen schuin naar voren in een Y, niet recht opzij.", sh:"Y-raise", unit:"pair", spoor:"B",
     cue:"Borst op de schuine bank, duimen omhoog, armen in een Y omhoog. Licht gewicht, geen zwaai. Dit is het tegenwicht voor al je drukwerk."},
-  squeeze:    {nm:"Incline squeeze press", sh:"Squeeze press", unit:"pair", incr:2, spoor:"A",
+  squeeze:    {nm:"Incline squeeze press", sh:"Squeeze press", unit:"pair", spoor:"A",
     fotoNota:"De foto toont de close-grip press op een vlakke bank. Bij jou staat de bank op 30 graden en druk je de dumbbells de hele set hard tegen elkaar, de spanning komt uit dat knijpen, niet uit het eindbereik.",
     cue:"Bank op 30°, dumbbells tegen elkaar en de hele set hard tegen elkaar blijven duwen. Ellebogen dicht bij je romp en nooit achter je romp. Drie seconden zakken. Het gewicht is laag omdat je knijpkracht de limiet is: 12 tot 20 kg per hand volstaat. Dit is de enige oefening in je plan die de aanhechtingsfunctie van je borstspier belast, en mechanisch de veiligste drukvariant die je hebt."},
-  shrug:      {nm:"Dumbbell shrug", sh:"Shrug", unit:"pair", incr:2, spoor:"A", cat_:"traps",
+  shrug:      {nm:"Dumbbell shrug", sh:"Shrug", unit:"pair", spoor:"A", cat_:"traps",
     cue:"Dumbbells naast je heupen, recht omhoog optrekken, niet rollen. Eén tot twee seconden knijpen bovenaan, en onderaan je schouders bewust laten zakken voor de volle rek. Geen nek meebewegen. Je greep wordt de beperkende factor rond 31 kg; gebruik dan lifting straps, want de trapezius is het doel en niet je onderarm."},
-  farmer:     {nm:"Farmer's walk, twee dumbbells", sh:"Farmer's walk", unit:"pair", incr:2, spoor:"A", unitReps:"m",
+  farmer:     {nm:"Farmer's walk, twee dumbbells", sh:"Farmer's walk", unit:"pair", spoor:"A", unitReps:"m",
     cue:"Twee zware dumbbells, 40 meter, romp rechtop en schouders laag. Dit is een isometrische trapeziusbelasting bij een gewicht dat geen enkele shrug-set haalt, en het kost je nauwelijks herstel."},
-  side_lat:   {nm:"Zijligging lateral raise", sh:"Zijligging raise", unit:"single", incr:1, spoor:"B", perSide:true,
+  side_lat:   {nm:"Zijligging lateral raise", sh:"Zijligging raise", unit:"single", spoor:"B", perSide:true,
     fotoNota:"De foto toont de staande versie. Bij deze variant lig je op je zij op de bank van 30 tot 45 graden, daardoor staat de zijdelt al vanaf nul graden onder spanning, precies het stuk van de beweging dat bij de staande raise ontbreekt.",
     cue:"Op je zij op de schuine bank, arm langs je lichaam. Hef tot schouderhoogte. Geen romp-compensatie mogelijk, dus je kunt niet valsspelen."},
-  decl_crunch:{nm:"Decline crunch met dumbbell", sh:"Decline crunch", unit:"single", incr:2, spoor:"A",
+  decl_crunch:{nm:"Decline crunch met dumbbell", sh:"Decline crunch", unit:"single", spoor:"A",
     cue:"Bank op decline, dumbbell tegen je borst. Drie seconden zakken, volledige rek over de bank heen. Breng je ribben naar je bekken, niet trekken met je heupbuigers."},
-  decl_situp: {nm:"Decline sit-up met dumbbell", sh:"Decline sit-up", unit:"single", incr:2, spoor:"A",
+  decl_situp: {nm:"Decline sit-up met dumbbell", sh:"Decline sit-up", unit:"single", spoor:"A",
     fotoNota:"De foto toont de sit-up op de vloer. Bij jou staat de bank op decline en hou je een dumbbell tegen je borst.",
     cue:"Volledige beweging over de decline bank, dumbbell tegen de borst. Rustig omhoog, drie seconden terug."},
-  ab_roller:  {nm:"Ab roller", sh:"Ab roller", unit:"bw", incr:0, spoor:"B", anim:"ab_roller",
+  ab_roller:  {nm:"Ab roller", sh:"Ab roller", unit:"bw", spoor:"B",
     cue:"Bekken gekanteld, lage rug mag niet doorzakken. Klein bereik is ook goed."},
-  carry:      {nm:"Suitcase carry", fotoNota:"De foto toont een farmer's walk met twee dumbbells. Bij de suitcase carry draag je er één, en juist die onbalans is het punt.", sh:"Carry", unit:"single", incr:2, spoor:"A", anim:"carry", perSide:true, unitReps:"m",
+  carry:      {nm:"Suitcase carry", fotoNota:"De foto toont een farmer's walk met twee dumbbells. Bij de suitcase carry draag je er één, en juist die onbalans is het punt.", sh:"Carry", unit:"single", spoor:"A", perSide:true, unitReps:"m",
     cue:"Eén dumbbell, 40 meter, romp kaarsrecht. Anti-laterale flexie, precies wat een bureaurug mist."},
-  dead_bug:   {nm:"Dead bug", sh:"Dead bug", unit:"bw", incr:0, spoor:"B", unitReps:"s",
+  dead_bug:   {nm:"Dead bug", sh:"Dead bug", unit:"bw", spoor:"B", unitReps:"s",
     cue:"Lage rug tegen de grond geplakt. Tegenovergestelde arm en been strekken, rustig ademen."},};
 
 /* ---------------- 2. PROGRAMMA — 4 BLOKKEN VAN 6 WEKEN ---------------- */
@@ -564,27 +580,27 @@ const BLOCKS = [
   rir:["3","3","2","2","1–2","deload: RIR 4–5"],
   tech:["Volledige bewegingsuitslag en deficit waar mogelijk","Unilateraal laden als fundering","Excentrisch tempo van 3 seconden op spoor-B-oefeningen"],
   wo:{
-   upperA:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("cs_row",4,5,10,14,150),W("floor_press",4,5,10,14,150),W("db_row",3,3,10,14,120),W("lat_raise",3,4,15,20,60),W("rear_fly",3,3,15,25,60),W("pushup",2,2,8,12,90,"3 s zakken, dit is tegelijk je poorttest voor meer diepte"),W("decl_crunch",2,3,12,15,60),W("ext_rot",2,2,12,15,45)],
+   upperA:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("cs_row",4,5,10,14,150),W("floor_press",4,5,10,14,150),W("db_row",3,3,10,14,120),W("lat_raise",3,4,15,20,60),W("rear_fly",3,3,15,25,60),W("pushup",2,2,8,12,90,"3 s zakken, dit is tegelijk je poorttest voor meer diepte"),W("decl_crunch",2,3,12,15,60)],
    lowerA:[W("bulgarian",3,4,10,14,150),W("db_rdl",3,4,10,14,150,"3 s excentrisch"),W("goblet_heel",2,2,12,18,90,"tempo 3-0-1"),W("sl_hip_thrust",2,2,12,18,90),W("leg_curl",2,2,8,12,90),W("lat_raise",2,2,15,20,45),W("calf_1",3,3,12,18,60,"3 s excentrisch"),W("tibialis",2,2,18,25,45),W("tri_ext",3,3,12,15,75),W("db_curl",3,3,12,15,75),W("rear_fly",3,3,15,25,45)],
    upperB:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("bo_row",4,5,10,14,150),W("pullover",3,3,10,15,90,"bereik tot je bovenarmen op oorhoogte staan, niet dieper"),W("db_incline",4,5,10,14,150,"zak tot je bovenarmen op romphoogte staan, niet dieper"),W("db_ohp",3,3,10,14,120),W("side_lat",3,4,12,18,60),W("shrug",3,3,12,15,90),W("squeeze",2,3,12,15,90,"3 s excentrisch"),W("prone_y",2,2,12,15,45)],
    lowerB:[W("bstance_rdl",3,4,10,14,150),W("rev_lunge",3,4,10,14,150),W("sl_hip_thrust",3,3,12,18,90,"2 s pauze bovenaan, per been"),W("leg_curl",2,2,8,12,90),W("farmer",2,2,40,40,90),W("ab_roller",2,2,8,12,60),W("dead_bug",2,2,30,45,60),W("calf_seat",3,3,15,25,60),W("tibialis",2,2,18,25,45),W("skull",3,3,12,15,75),W("hammer_curl",3,3,12,15,75),W("carry",2,2,40,40,60)]}},
 
 { n:2, w:[7,12], nm:"Accumulatie",
   focus:"Het volume piekt hier, week 11 is het hoogste punt van het hele programma en wordt daarna nooit meer overschreden. Bewust zes sets onder je plafond, zodat er speling is voor de eerste week die tegenvalt.",
-  rir:["3","2","2","1","0–1 op isolatie","deload: RIR 4–5"],
+  rir:["3","2","2","1","1","deload: RIR 4–5"],
   tech:["Twee seconden pauze in de gerekte positie op press, RDL, split squat en row","1,5-reps op de laatste set lateral raise en hip thrust","Push-up met voeten verhoogd","Twee seconden knijpen bovenaan de shrug"],
   wo:{
-   upperA:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("cs_row",4,5,8,12,150,"2 s pauze onderaan"),W("floor_press",4,5,8,12,150,"wk 7–8 floor press · vanaf wk 9 vlakke bank met opgerolde handdoek van 8–10 cm"),W("db_row",3,4,8,12,120),W("lat_raise",4,5,12,18,60,"1,5-reps laatste set"),W("rear_fly",3,3,15,25,60),W("pushup",2,2,8,12,90,"3 s zakken, dit is tegelijk je poorttest voor meer diepte"),W("decl_crunch",3,3,10,15,60),W("ext_rot",2,2,12,15,45)],
+   upperA:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("cs_row",4,5,8,12,150,"2 s pauze onderaan"),W("floor_press",4,5,8,12,150,"wk 7–8 floor press · vanaf wk 9 vlakke bank met opgerolde handdoek van 8–10 cm"),W("db_row",3,4,8,12,120),W("lat_raise",4,5,12,18,60,"1,5-reps laatste set"),W("rear_fly",3,3,15,25,60),W("pushup",2,2,8,12,90,"3 s zakken, dit is tegelijk je poorttest voor meer diepte"),W("decl_crunch",3,3,10,15,60)],
    lowerA:[W("bulgarian",3,4,8,12,150,"2 s pauze onderaan"),W("db_rdl",3,4,8,12,150,"2 s pauze onderaan"),W("goblet_heel",2,2,12,18,90,"1,5-reps"),W("sl_hip_thrust",2,2,12,18,90),W("leg_curl",2,2,8,12,90),W("lat_raise",3,3,15,20,45),W("squeeze",2,2,12,15,60,"licht, RIR 2"),W("calf_1",2,2,12,18,60),W("tibialis",2,2,18,25,45),W("tri_ext",3,4,10,14,75),W("db_curl",3,4,10,14,75),W("rear_fly",3,3,15,25,45)],
    upperB:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("bo_row",4,5,8,12,150,"strikt, geen zwaai"),W("pullover",3,3,10,15,90,"bereik tot je bovenarmen op oorhoogte staan, niet dieper"),W("db_incline",4,5,8,12,150,"nog steeds tot romphoogte, geen pauze in de rek"),W("db_ohp",3,3,8,12,120),W("side_lat",4,5,12,18,60,"1,5-reps laatste set"),W("shrug",3,3,10,15,90),W("squeeze",3,3,12,15,90),W("prone_y",2,2,12,15,45)],
    lowerB:[W("bstance_rdl",3,4,8,12,150),W("rev_lunge",3,4,8,12,150),W("sl_hip_thrust",3,3,12,18,90,"1,5-reps, per been"),W("leg_curl",2,2,8,12,90),W("farmer",2,2,40,40,90),W("ab_roller",2,2,10,15,60),W("dead_bug",2,2,30,45,60),W("calf_seat",2,2,15,25,60),W("tibialis",2,2,18,25,45),W("skull",3,4,10,14,75),W("hammer_curl",3,4,10,14,75),W("carry",2,2,40,40,60)]}},
 
 { n:3, w:[13,18], nm:"Effectieve reps",
   focus:"Iets minder volume, veel hardere sets. De vlakke bankdruk komt terug als je klachtenvrij bent, blijft je schouder zeuren, dan houd je de floor press en verlies je niets. Vanaf hier compenseer je met een rugzak wat je aan lichaamsgewicht verliest.",
-  rir:["2","2","1","1","0–1 op isolatie","deload: RIR 4–5"],
+  rir:["2","2","1","1","1","deload: RIR 4–5"],
   tech:["Myo-reps op maximaal twee isolatieoefeningen per sessie","Drop set op de laatste set van twee isolatieoefeningen","Cluster sets 3×(3+3+3) op de split squat","Rugzak verplicht op push-up, split squat en calf raise"],
   wo:{
-   upperA:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("cs_row",4,5,6,10,150),W("db_bench",4,5,6,10,150,"handdoek 4–5 cm tot wk 16 · volle diepte vanaf wk 17, alleen na de poort"),W("db_row",3,3,8,12,120),W("lat_raise",4,5,10,15,60,"myo-reps"),W("rear_fly",3,3,12,20,60),W("pushup",2,2,8,12,90,"3 s zakken, dit is tegelijk je poorttest voor meer diepte"),W("decl_crunch",3,3,10,15,60),W("ext_rot",2,2,12,15,45)],
+   upperA:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("cs_row",4,5,6,10,150),W("db_bench",4,5,6,10,150,"handdoek 4–5 cm tot wk 16 · volle diepte vanaf wk 17, alleen na de poort"),W("db_row",3,3,8,12,120),W("lat_raise",4,5,10,15,60,"myo-reps"),W("rear_fly",3,3,12,20,60),W("pushup",2,2,8,12,90,"3 s zakken, dit is tegelijk je poorttest voor meer diepte"),W("decl_crunch",3,3,10,15,60)],
    lowerA:[W("bss_ffe",3,4,6,10,150,"cluster 3×(3+3+3)"),W("sl_rdl",3,3,8,12,150,"per been, 3 s excentrisch"),W("goblet_heel",2,2,12,18,90),W("sl_hip_thrust",2,2,10,15,90),W("leg_curl",2,2,8,12,90,"3 s excentrisch"),W("lat_raise",3,3,12,18,45),W("squeeze",2,2,12,15,60,"licht, RIR 2"),W("calf_1",2,2,10,15,60,"3 s excentrisch + 2 s rek"),W("tibialis",2,2,18,25,45),W("tri_ext",3,4,10,14,75,"drop set laatste"),W("db_curl",3,4,10,14,75,"drop set laatste"),W("rear_fly",3,3,15,25,45)],
    upperB:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("bo_row",4,5,6,10,150,"strikt"),W("pullover",3,3,10,15,90,"handdoekdiepte, vier centimeter boven oorhoogte"),W("db_incline",4,5,6,10,150,"handdoekdiepte: vier centimeter onder romphoogte, alleen na de poort"),W("db_ohp",3,3,6,10,120),W("side_lat",4,5,10,16,60,"myo-reps"),W("shrug",3,3,8,12,90),W("squeeze",3,3,12,15,90),W("prone_y",2,2,12,15,45)],
    lowerB:[W("bstance_rdl",3,4,6,10,150),W("step_up",3,4,8,12,150),W("sl_hip_thrust",3,3,12,18,90,"per been"),W("leg_curl",2,2,8,12,90),W("farmer",2,2,40,40,90),W("ab_roller",2,2,10,15,60),W("dead_bug",2,2,30,45,60),W("calf_seat",2,2,12,20,60),W("tibialis",2,2,18,25,45),W("skull",3,4,10,14,75),W("hammer_curl",3,4,10,14,75,"drop set laatste"),W("carry",2,2,40,40,60)]}},
@@ -594,7 +610,7 @@ const BLOCKS = [
   rir:["2","2","1–2","1","1","deload: RIR 4–5"],
   tech:["Lengthened partials na falen op lateral raise, curl en shrug","Isolatie in antagonist-supersets met 45 s rust","Maximaal unilateraal beenwerk","Kuitwerk laag, het springtouw levert de rest"],
   wo:{
-   upperA:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("cs_row",3,4,6,10,150),W("db_bench",4,4,6,10,150,"volle diepte, 3 s excentrisch"),W("db_row",3,3,8,12,120),W("lat_raise",4,5,10,15,45,"lengthened partials"),W("rear_fly",3,3,12,20,45),W("pushup",2,2,8,12,90,"3 s zakken, dit is tegelijk je poorttest voor meer diepte"),W("decl_crunch",3,3,10,15,60),W("ext_rot",2,2,12,15,45)],
+   upperA:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("cs_row",3,4,6,10,150),W("db_bench",4,4,6,10,150,"volle diepte, 3 s excentrisch"),W("db_row",3,3,8,12,120),W("lat_raise",4,5,10,15,45,"lengthened partials"),W("rear_fly",3,3,12,20,45),W("pushup",2,2,8,12,90,"3 s zakken, dit is tegelijk je poorttest voor meer diepte"),W("decl_crunch",3,3,10,15,60)],
    lowerA:[W("bss_ffe",3,4,6,10,150,"cluster 3×(3+3+3)"),W("sl_rdl",3,3,8,12,150,"per been, 3 s excentrisch"),W("sl_hip_thrust",2,2,10,15,90),W("leg_curl",2,2,8,12,90),W("lat_raise",3,3,12,18,45),W("calf_1",2,2,10,15,60),W("tibialis",2,2,18,25,45),W("tri_ext",3,3,10,14,45),W("db_curl",3,3,10,14,45,"lengthened partials"),W("rear_fly",3,3,15,25,45)],
    upperB:[W("scap_pu",2,2,12,15,45,"opwarming, vóór je eerste drukoefening"),W("ext_rot",2,2,12,15,45,"opwarming"),W("bo_row",4,4,6,10,150,"strikt"),W("pullover",3,3,10,15,90,"volle uitslag, alleen na de poort"),W("db_incline",4,4,6,10,150,"volle diepte met drie seconden zakken, alleen na de poort"),W("db_ohp",3,3,6,10,120),W("side_lat",4,4,10,16,45,"lengthened partials"),W("shrug",3,3,8,12,90),W("squeeze",3,3,12,15,90),W("prone_y",2,2,12,15,45)],
    lowerB:[W("bstance_rdl",3,4,6,10,150),W("step_up",3,3,8,12,150),W("sl_hip_thrust",3,3,12,18,90,"per been"),W("leg_curl",2,2,8,12,90),W("farmer",2,2,40,40,90),W("ab_roller",2,2,10,15,60),W("dead_bug",2,2,30,45,60),W("calf_seat",2,2,12,20,60),W("tibialis",2,2,18,25,45),W("skull",3,3,10,14,45),W("hammer_curl",3,3,10,14,45),W("carry",2,2,40,40,60)]}}
@@ -606,7 +622,6 @@ const STEPS = [2,7,10,12,15,17,18,20,22,24,26,28,31,33,35,40];
 const snapUp   = w => STEPS.find(x=>x>w) ?? STEPS[STEPS.length-1];
 const snapDown = w => [...STEPS].reverse().find(x=>x<w) ?? STEPS[0];
 const snapNear = w => STEPS.reduce((a,b)=>Math.abs(b-w)<Math.abs(a-w)?b:a, STEPS[0]);
-const stapPct  = w => { const n=snapUp(w); return w? Math.round((n-w)/w*100) : 0; };
 const WO_ORDER = ["upperA","lowerA","upperB","lowerB"];
 const WO_NM = {upperA:"Upper A", lowerA:"Lower A", upperB:"Upper B", lowerB:"Lower B"};
 const WO_DAY = {upperA:1, lowerA:2, upperB:4, lowerB:6};   // ma, di, do, za
@@ -768,14 +783,23 @@ function load(){
     return deepDefault(null);
   }
 }
-function persist(){
+// De versiebewaking beschermt tegen een tweede venster dat verder staat. Ze mag
+// nooit een bewuste handeling tegenhouden: een back-up terugzetten of alles wissen
+// gaat altijd voor. Daarvoor is forceer.
+function persist(forceer){
   try{
     const cur = JSON.parse(localStorage.getItem(KEY) || "null");
-    if(cur && typeof cur.rev==="number" && cur.rev > S.rev){
-      banner("Een ander tabblad of venster van deze app is verder dan dit. Herlaad de pagina voor je verdergaat, anders overschrijf je die gegevens.");
+    if(!forceer && cur && typeof cur.rev==="number" && cur.rev > S.rev){
+      // Niet overschrijven, maar ook niet verliezen: wat hier openstaat gaat apart opzij.
+      try{ localStorage.setItem(KEY+"-nietopgeslagen", JSON.stringify(S)); }catch(_){}
+      saveOk = false;
+      banner("Een ander venster van deze app staat verder dan dit. Wat je hier invulde is apart bewaard en wordt niet weggeschreven. Herlaad de pagina.");
       return;
     }
-    S.rev = (S.rev||0) + 1;
+    // Bij een bewuste overschrijving tellen we door vanaf wat er staat, anders
+    // blijft de bewaking bij elke volgende opslag opnieuw blokkeren.
+    const basis = forceer ? Math.max(S.rev||0, (cur && cur.rev)||0) : (S.rev||0);
+    S.rev = basis + 1;
     localStorage.setItem(KEY, JSON.stringify(S));
     if(!saveOk){ saveOk = true; banner(null); }
   }catch(e){
@@ -785,10 +809,19 @@ function persist(){
 }
 function save(){ clearTimeout(saveTimer); saveTimer = setTimeout(persist, 150); }
 function flush(){ clearTimeout(saveTimer); persist(); }
+function flushForce(){ clearTimeout(saveTimer); persist(true); }
 
 function loadPhotos(){ try{ return JSON.parse(localStorage.getItem(PKEY)||"[]"); }catch(e){ return []; } }
+const FOTO_MAX = 3.2 * 1024 * 1024;   // ruim onder de opslaggrens, zodat je logboek altijd plaats houdt
 function savePhotos(){
-  try{ localStorage.setItem(PKEY, JSON.stringify(PHOTOS)); return true; }
+  try{
+    const blob = JSON.stringify(PHOTOS);
+    if(blob.length > FOTO_MAX){
+      banner("Je foto's vullen de opslag. Peil weigert deze foto zodat je trainingen gegarandeerd bewaard blijven. Verwijder eerst een oudere reeks.");
+      return false;
+    }
+    localStorage.setItem(PKEY, blob); return true;
+  }
   catch(e){ banner("Er is geen ruimte meer om foto's te bewaren. Verwijder een oudere reeks."); return false; }
 }
 
@@ -944,7 +977,9 @@ const FRIS = [
 ];
 const ALC_LIMIET = 3;          // eenheden per week, advies van de diëtist
 const SUIKER_LIMIET = 25;      // g suiker per week uit drank, richtgetal, geen wet
-function alcOp(d){ return Object.assign({u:0, kcal:0, fk:0, sg:0}, S.alcohol[d] || {}); }
+function alcOp(d){ return Object.assign({u:0, kcal:0, fk:0, sg:0, log:[]}, S.alcohol[d] || {}); }
+function drankSuiker(d){ const a=alcOp(d); return a && a.sg ? a.sg : 0; }
+function drankNaam(id){ const x = DRANK.find(y=>y.id===id) || FRIS.find(y=>y.id===id); return x ? x.nm : "drankje"; }
 function drankKcal(d){ const a = alcOp(d); return a.kcal + a.fk; }
 function alcWeek(ref){
   const mon = mondayOf(ref||VIEW_DATE);
@@ -1026,7 +1061,10 @@ function recommend(item, woId, wk, excludeKey, beforeDate){
 
   const last = hist[hist.length-1].ex[item.id].filter(s=>s.r>0);
   const w = ex.unit==="bw" ? 0 : Math.max(0, ...last.filter(s=>s.w>0).map(s=>s.w));
-  const lastRir = last[last.length-1].rir ?? 2;
+  // Geen RIR gemeld betekent niet "twee over". Neem aan dat het doel gehaald is,
+  // anders bevriest één vergeten tik je gewicht zonder dat je ziet waarom.
+  const rirGemeld = last[last.length-1].rir != null;
+  const lastRir = rirGemeld ? last[last.length-1].rir : rirDoel(wk);
   const e1 = Math.max(0, ...last.map(s=>e1rm(s.w,s.r,s.rir)));
   const allHit = last.length >= sets && last.every(s=>s.r >= item.hi);
   const tooHeavy = last.filter(s=>s.r < item.lo).length >= 2;
@@ -1324,20 +1362,44 @@ function renderMeta(){
 }
 function renderDateBar(){
   const t = today(), isToday = VIEW_DATE===t;
-  $("#dateBar").innerHTML =
-    '<div class="datebar'+(isToday?"":" past")+'">'+
-    '<label class="lbl" for="dsel">'+(isToday?"Vandaag":"Je bewerkt")+'</label>'+
+  // Op vandaag zegt deze balk niets wat je niet weet, en hij kostte een derde
+  // van de koptekst op elk scherm. Hij verschijnt alleen als je in het verleden zit.
+  $("#dateBar").innerHTML = isToday ? "" :
+    '<div class="datebar past">'+
+    '<label class="lbl" for="dsel">Je bewerkt</label>'+
     '<input id="dsel" type="date" data-act="viewDate" max="'+t+'" value="'+VIEW_DATE+'">'+
-    (isToday?'':'<button class="btn sm ghost" data-act="dToday">Terug naar vandaag</button>')+
+    '<button class="btn sm ghost" data-act="dToday">Terug naar vandaag</button>'+
     '</div>';
+  meetKop();
 }
+// De sessiekop plakt onder de koptekst, dus die hoogte moet bekend zijn.
+function meetKop(){
+  const k = document.querySelector("header.top");
+  if(k) document.documentElement.style.setProperty("--kop", Math.round(k.getBoundingClientRect().height)+"px");
+}
+addEventListener("resize", meetKop);
 function banner(msg){
   const host = $("#alertHost");
   if(!msg){ host.innerHTML=""; return; }
   host.innerHTML = '<div class="alert" role="alert"><span>'+esc(msg)+'</span>'+
     '<button data-act="goto" data-tab="plan" data-pseg="set">Back-up</button></div>';
 }
-function say(msg){ const l=$("#live"); if(l) l.textContent = msg; }
+let sayTimer = null;
+// Rechtstreeks op het element, niet via een klasse: dan kan geen enkele
+// herrendering of stijlregel de melding alsnog onzichtbaar maken.
+function toonToast(l, aan){
+  l.style.opacity = aan ? "1" : "0";
+  l.style.transform = "translateX(-50%) translateY("+(aan?0:8)+"px)";
+}
+function say(msg){
+  const l=$("#live"); if(!l) return;
+  l.textContent = msg;
+  clearTimeout(sayTimer);
+  if(!msg){ toonToast(l,false); return; }
+  toonToast(l,true);
+  // Lang genoeg om te lezen, kort genoeg om niet in de weg te zitten.
+  sayTimer = setTimeout(()=>toonToast(l,false), Math.min(6000, 2200 + msg.length*28));
+}
 
 // Geluid: de AudioContext wordt ontgrendeld door de eerste tik op een set, dus dit mag.
 let AC = null, gepiept = false;
@@ -1398,7 +1460,7 @@ function renderTimer(){
 }
 
 /* ---------------- 12. VIEW: VANDAAG ---------------- */
-let DAG_SEG = "dag", ALC_OPEN = false;
+let DAG_SEG = "dag";
 // Weekoverzicht: wat er gepland staat en of je op schema zit.
 function weekPlan(ref){
   const mon = mondayOf(ref);
@@ -1627,7 +1689,7 @@ function viewDag(){
   const ch = S.checks[d] || {};
   const dayMeals = mealsOn(d);
   const tot = totalMacros(dayMeals);
-  tot.kcal += drankKcal(d);
+  tot.kcal += drankKcal(d); tot.c += drankSuiker(d);
   const tr = trend(d);
   const w = S.weights[d];
   const done = CHECKS.filter(c=>ch[c.id]).length;
@@ -1694,7 +1756,7 @@ function viewDag(){
   // 's Ochtends weeg je eerst, 's avonds train je eerst. Zelfde blokken, andere volgorde.
   let h = waarschuwing + (NA15 ? hTrain + hDag : hDag + hTrain);
   h += '<div class="card"><div class="card-h"><h2>Voeding</h2><span class="sub">doel '+kcalDoelVoor(d)+' kcal · '+S.targets.protein+' g eiwit</span></div>';
-  h += macroBars(tot);
+  h += macroBars(tot, kcalDoelVoor(d));
   if(dayMeals.length){
     h += '<div class="stack" style="margin-top:11px">'+dayMeals.map(x=>
       '<div class="row small"><span class="chip">'+esc(slotOf(x.r.slot).t)+'</span><span>'+esc(x.r.nm)+'</span>'+
@@ -1703,15 +1765,38 @@ function viewDag(){
   } else {
     h += '<p class="small muted" style="margin-top:10px">Nog niets gepland voor deze dag.</p>';
   }
+  // De kantoorlunch is de maaltijd die je 's avonds moet maken. Mis je die, dan koop je iets.
+  const morgen = addDays(d,1);
+  const mLunch = mealsOn(morgen).map(x=>x.r).find(r=>r.slot==="lunch");
+  if(mLunch && officeDay(morgen)){
+    const eersteZin = String(mLunch.hoe||"").split(/(?<=\.)\s+/)[0] || "";
+    h += '<div class="note acc" style="margin-top:11px"><b>Voor morgen, kantoordag.</b> '+esc(mLunch.nm)+
+      (eersteZin ? ' &middot; '+esc(eersteZin) : '')+'</div>';
+  }
   h += '<button class="btn wide ghost" style="margin-top:11px" data-act="goto" data-tab="voeding">Maaltijden kiezen</button></div>';
 
-  h += '<div class="card"><div class="card-h"><h2>Checklist</h2><span class="sub num">'+done+'/'+CHECKS.length+'</span></div>';
-  CHECKS.forEach(c=>{
-    let tgt = c.id==="kcal" ? kcalDoelVoor(d)+" kcal" : c.id==="protein" ? "≥"+S.targets.protein+" g" : "";
-    h += '<label class="check"><input type="checkbox" data-check="'+c.id+'"'+(ch[c.id]?" checked":"")+'>'+
-         '<span>'+esc(c.lbl)+'</span><span class="tgt num">'+tgt+'</span></label>';
+  // Calorieën en eiwit weet de app zelf al uit je maaltijden. Die twee aftikken
+  // was werk zonder opbrengst, en het cijfer kon afwijken van je eigen gegevens.
+  const kDoel = kcalDoelVoor(d);
+  const auto = {
+    kcal:    tot.kcal>0 && Math.abs(tot.kcal - kDoel) <= kDoel*0.08,
+    protein: tot.p >= S.targets.protein
+  };
+  const handmatig = CHECKS.filter(c=>!(c.id in auto));
+  const gedaanAuto = Object.values(auto).filter(Boolean).length;
+  const gedaanHand = handmatig.filter(c=>ch[c.id]).length;
+  h += '<div class="card"><div class="card-h"><h2>Checklist</h2><span class="sub num">'+
+       (gedaanAuto+gedaanHand)+'/'+CHECKS.length+'</span></div>';
+  CHECKS.filter(c=>c.id in auto).forEach(c=>{
+    h += '<div class="check auto'+(auto[c.id]?" ja":"")+'"><span class="vink" aria-hidden="true">'+(auto[c.id]?"✓":"·")+'</span>'+
+         '<span>'+esc(c.lbl)+'</span><span class="tgt num">'+
+         (c.id==="kcal" ? Math.round(tot.kcal)+" / "+kDoel : Math.round(tot.p)+" / "+S.targets.protein)+'</span></div>';
   });
-  h += '</div>';
+  handmatig.forEach(c=>{
+    h += '<label class="check"><input type="checkbox" data-check="'+c.id+'"'+(ch[c.id]?" checked":"")+'>'+
+         '<span>'+esc(c.lbl)+'</span><span class="tgt num"></span></label>';
+  });
+  h += '<p class="xs muted" style="margin-top:7px">De eerste twee vult Peil zelf in uit je maaltijden.</p></div>';
   const aw = alcWeek(d), at = alcOp(d), vrij = alcVrijeReeks();
   const dagKcal = at.kcal + at.fk;
   h += '<div class="card"><div class="card-h"><h2>Alcohol &amp; frisdrank</h2>'+
@@ -1723,21 +1808,25 @@ function viewDag(){
     '<div class="stat"><div class="k">Alcohol vandaag</div><div class="v">'+(at.u?n1(at.u):"0")+'<span class="u">eh</span></div></div>'+
     '<div class="stat"><div class="k">Drank vandaag</div><div class="v">'+dagKcal+'<span class="u">kcal</span></div></div>'+
     '<div class="stat"><div class="k">Deze week</div><div class="v">'+(aw.totKcal||0)+'<span class="u">kcal</span></div></div></div>'+
-    (ALC_OPEN
-      ? '<div class="eyebrow" style="margin-top:11px">Alcohol</div>'+
-        '<div class="row" style="margin-top:5px;flex-wrap:wrap;gap:6px">'+
-        DRANK.map(x=>'<button class="btn sm" data-act="alc" data-id="'+x.id+'">+ '+esc(x.nm)+'</button>').join("")+'</div>'+
-        '<div class="eyebrow" style="margin-top:11px">Frisdrank en sap</div>'+
-        '<div class="row" style="margin-top:5px;flex-wrap:wrap;gap:6px">'+
-        FRIS.map(x=>'<button class="btn sm" data-act="fris" data-id="'+x.id+'">+ '+esc(x.nm)+'</button>').join("")+'</div>'+
-        ((at.u||at.fk||at.sg) ? '<button class="btn sm ghost" style="margin-top:8px" data-act="alcReset">Vandaag wissen</button>' : '')
-      : '<button class="btn wide ghost" style="margin-top:11px" data-act="alcOpen">Drankje registreren</button>')+
+    // De knoppen staan er gewoon. Een extra tik om ze tevoorschijn te halen kostte
+    // je elke keer een handeling, en mis je er een, dan kan je die nu terugnemen.
+    '<div class="eyebrow" style="margin-top:11px">Alcohol</div>'+
+    '<div class="row" style="margin-top:5px;flex-wrap:wrap;gap:6px">'+
+    DRANK.map(x=>'<button class="btn sm" data-act="alc" data-id="'+x.id+'">+ '+esc(x.nm)+'</button>').join("")+'</div>'+
+    '<div class="eyebrow" style="margin-top:11px">Frisdrank en sap</div>'+
+    '<div class="row" style="margin-top:5px;flex-wrap:wrap;gap:6px">'+
+    FRIS.map(x=>'<button class="btn sm" data-act="fris" data-id="'+x.id+'">+ '+esc(x.nm)+'</button>').join("")+'</div>'+
+    ((at.log && at.log.length)
+      ? '<div class="row" style="margin-top:9px;gap:6px;flex-wrap:wrap">'+
+        '<button class="btn sm ghost" data-act="alcTerug">Laatste terugnemen: '+esc(drankNaam(at.log[at.log.length-1]))+'</button>'+
+        '<button class="btn sm ghost" data-act="alcReset">Vandaag wissen</button></div>'
+      : (at.u||at.fk||at.sg) ? '<button class="btn sm ghost" style="margin-top:9px" data-act="alcReset">Vandaag wissen</button>' : '')+
     (aw.u>ALC_LIMIET
       ? '<div class="note" style="margin-top:10px">Je zit boven de drie eenheden die als weekgrens is afgesproken. Dat weegt niet zwaar, maar '+aw.kcal+' kcal deze week is ongeveer '+nl(r1(aw.kcal*52/7700))+' kg vet over een jaar aan dit tempo, en op drinkavonden ligt je vetverbranding sowieso stil.</div>'
       : vrij>=7 ? '<div class="note okk" style="margin-top:10px">'+vrij+' dagen op rij zonder alcohol. Dat is precies de post waar de diëtist het meeste van verwacht.</div>' : '')+
     (aw.sg>SUIKER_LIMIET
       ? '<div class="note bad" style="margin-top:10px"><b>'+aw.sg+' g suiker uit drank deze week.</b> Dat is '+aw.fk+' kcal die je maag niet als eten registreert. Dit is de post die het hardst telt voor buikvet: vloeibare fructose gaat rechtstreeks naar je lever en is de enige suikervorm die daar in vet wordt omgezet. Eén blikje minder per dag is een van de weinige aanpassingen die je zonder honger kan doorvoeren.</div>'
-      : (aw.sg>0 && ALC_OPEN) ? '<div class="note" style="margin-top:10px">'+aw.sg+' g suiker uit drank deze week, '+aw.fk+' kcal. Onder het richtgetal van '+SUIKER_LIMIET+' g. Light en zero tellen niet mee, die staan er niet voor de vorm, ze zijn hier het antwoord.</div>'
+      : aw.sg>0 ? '<div class="note" style="margin-top:10px">'+aw.sg+' g suiker uit drank deze week, '+aw.fk+' kcal. Onder het richtgetal van '+SUIKER_LIMIET+' g. Light en zero tellen niet mee, die staan er niet voor de vorm, ze zijn hier het antwoord.</div>'
       : '')+
     '</div>';
   return h;
@@ -1771,9 +1860,12 @@ function cardioKind(dateStr){
   return rope ? "touw" : "blok";
 }
 function cardioVal(d){ const v=S.cardio[d]; if(v==null) return null; return (typeof v==="number") ? {k:"touw",v} : v; }
-function macroBars(tot){
+function macroBars(tot, kcalDoel){
   const T=S.targets;
-  const rows=[["Calorieën",tot.kcal,T.kcal,"kcal"],["Eiwit",tot.p,T.protein,"g"],["Vet",tot.f,T.fat,"g"],["Koolhydraten",tot.c,T.carb,"g"]];
+  // In de dieetpauzeweken ligt het caloriedoel hoger. De balk moet dan tegen dát
+  // getal meten, niet tegen het normale doel.
+  const kD = kcalDoel || T.kcal;
+  const rows=[["Calorieën",tot.kcal,kD,"kcal"],["Eiwit",tot.p,T.protein,"g"],["Vet",tot.f,T.fat,"g"],["Koolhydraten",tot.c,T.carb,"g"]];
   return '<div class="stack">'+rows.map(([nm,v,t,u])=>{
     // De schaal loopt door boven het doel, met een streepje op het doel zelf.
     // Anders ziet 2.600 kcal er hetzelfde uit als precies 2.400.
@@ -1881,7 +1973,10 @@ function viewTraining(){
     const e = EX[id]; if(!e || e.unit==="bw") return;
     rijen.forEach(x=>{ if(x && x.done && x.w && x.r) volume += x.w * x.r * (e.unit==="pair" ? 2 : 1); });
   });
-  const mins = log.start ? Math.max(0, Math.round((Date.now()-log.start)/60000)) : null;
+  // Alleen zinvol voor de sessie van vandaag. Een oude sessie heeft geen eindtijd,
+  // dus die zou anders duizenden minuten tonen.
+  const mins = (log.start && SESS_DATE===today())
+    ? Math.min(240, Math.max(0, Math.round((Date.now()-log.start)/60000))) : null;
   h += '<div class="sesskop"><span class="nm">'+WO_NM[woId]+'</span>'+
     '<span class="v">'+gedaanN+'/'+totaalN+'</span>'+
     (volume ? '<span class="vol">'+(volume>=1000 ? nl(r1(volume/1000))+' t' : volume+' kg')+'</span>' : '')+
@@ -1889,17 +1984,22 @@ function viewTraining(){
     (mins!=null ? '<span class="tijd">'+mins+' min</span>' : '')+'</div>';
   h += '<div class="card"><div class="card-h"><h2>'+WO_NM[woId]+'</h2>'+
        '<span class="sub">week '+wk+' · blok '+b.n+'<br>RIR-doel '+esc(rirFor(wk))+'</span></div>';
+  // In verreweg de meeste sessies log je op vandaag. Dan hoeft dit blok er niet te
+  // staan; het duwde je eerste oefening een half scherm omlaag.
   const gisteren = addDays(today(),-1);
-  h += '<div class="eyebrow" style="margin-top:11px">Datum van de sessie</div>'+
-       '<div class="row" style="margin-top:5px;gap:6px;flex-wrap:wrap">'+
-       '<button class="btn sm'+(SESS_DATE===today()?" pri":"")+'" data-act="sessQuick" data-d="'+today()+'">Vandaag</button>'+
-       '<button class="btn sm'+(SESS_DATE===gisteren?" pri":"")+'" data-act="sessQuick" data-d="'+gisteren+'">Gisteren</button>'+
-       '<button class="btn sm ghost" data-act="recalc">Herbereken</button></div>'+
-       (SESS_DATE!==today() && SESS_DATE!==gisteren
-         ? '<p class="xs muted" style="margin-top:6px">Je logt op <b>'+esc(longDate(SESS_DATE))+'</b>.</p>' : '')+
-       '<details style="margin-top:7px"><summary class="xs muted" style="min-height:36px;display:flex;align-items:center">Andere datum kiezen</summary>'+
-       '<input type="date" data-act="sessDate" value="'+SESS_DATE+'" style="margin-top:6px"></details>';
-  if(isDeload(wk)) h += '<div class="note" style="margin-top:10px"><b>Deloadweek.</b> Zelfde oefeningen, ongeveer de helft van de sets, gewicht op 90–95% en stoppen op RIR 4–5. Niet lichter gaan dan dat, dan detrain je. Je laat alleen vermoeidheid zakken.</div>';
+  if(SESS_DATE===today()){
+    h += '<details style="margin-top:9px"><summary class="xs muted" style="min-height:36px;display:flex;align-items:center">Op een andere dag loggen</summary>'+
+         '<div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap">'+
+         '<button class="btn sm" data-act="sessQuick" data-d="'+gisteren+'">Gisteren</button>'+
+         '<button class="btn sm ghost" data-act="recalc">Herbereken</button></div>'+
+         '<input type="date" data-act="sessDate" value="'+SESS_DATE+'" style="margin-top:6px"></details>';
+  } else {
+    h += '<div class="note warn" style="margin-top:11px"><b>Let op.</b> Je logt op '+esc(longDate(SESS_DATE))+', niet op vandaag.'+
+         '<div class="row" style="margin-top:7px;gap:6px;flex-wrap:wrap">'+
+         '<button class="btn sm pri" data-act="sessQuick" data-d="'+today()+'">Terug naar vandaag</button>'+
+         '<button class="btn sm ghost" data-act="recalc">Herbereken</button></div></div>';
+  }
+  if(isDeload(wk)) h += '<div class="note" style="margin-top:10px"><b>Deloadweek.</b> Zelfde oefeningen, ongeveer de helft van de sets, hetzelfde gewicht als vorige week en stoppen op RIR 4–5. Niet lichter gaan dan dat, dan detrain je. Je laat alleen vermoeidheid zakken.</div>';
   else h += '<div class="note acc" style="margin-top:10px"><b>Blok '+b.n+' · '+esc(b.nm)+'</b><br> '+esc(b.focus)+'</div>';
   h += '</div>';
 
@@ -1934,7 +2034,7 @@ function viewTraining(){
 
     if(prevs.length){
       const pv = prevs[prevs.length-1], ps = pv.ex[item.id].filter(x=>x.r>0);
-      h += '<div class="prev">'+esc(shortDate(pv.date))+' · tik op een grijs getal om het over te nemen'+
+      h += '<div class="prev">'+esc(shortDate(pv.date))+' · grijs is vorige keer, brons is je doel voor nu'+
            (ps[ps.length-1].rir!=null? ' · laatste set RIR '+ps[ps.length-1].rir : '')+'</div>';
     }
     if(OPEN_TECH.has(item.id)){
@@ -1996,6 +2096,15 @@ function viewTraining(){
 
   h += '<div class="card"><label class="fld"><span>Notitie (slaap, energie, pijn)</span>'+
        '<textarea rows="2" data-act="note" placeholder="Voelde zwaar, slecht geslapen">'+esc(log.note||"")+'</textarea></label>'+
+       (woId==="upperA" || woId==="upperB"
+         ? '<div class="eyebrow" style="margin-top:13px">Voorste schouder na deze sessie</div>'+
+           '<div class="row" style="margin-top:5px;gap:6px;flex-wrap:wrap">'+
+           [["rustig","Rustig"],["zeurde","Zeurde"],["pijn","Pijn"]].map(([k,nm])=>
+             '<button class="btn sm'+(log.schouder===k?" pri":"")+'" data-act="schouder" data-v="'+k+'">'+nm+'</button>').join("")+
+           '</div>'+
+           '<p class="xs muted" style="margin-top:6px">Hierop rust de poort naar volledige bewegingsuitslag in blok 3 en 4. '+
+           esc(poortStand())+'</p>'
+         : '')+
        '<p class="xs muted" style="margin-top:9px">Elke set die je afvinkt wordt meteen bewaard en start je rusttimer. Het advies voor je volgende sessie wordt berekend zodra je die opent.</p></div>';
   return h;
 }
@@ -2181,8 +2290,8 @@ function viewVoeding(){
 
   if(FOOD_SEG==="dag"){
     const meals = mealsOn(d), tot = totalMacros(meals);
-    tot.kcal += drankKcal(d);
-    h += '<div class="card"><div class="card-h"><h2>Dagtotaal</h2><span class="sub">'+esc(longDate(d))+'</span></div>'+macroBars(tot);
+    tot.kcal += drankKcal(d); tot.c += drankSuiker(d);
+    h += '<div class="card"><div class="card-h"><h2>Dagtotaal</h2><span class="sub">'+esc(longDate(d))+'</span></div>'+macroBars(tot, kcalDoelVoor(d));
     const gap = kcalDoelVoor(d) - tot.kcal, pgap = Math.round(S.targets.protein - tot.p);
     if(meals.length) h += '<p class="small muted" style="margin-top:10px">'+
       (gap>60 ? "Nog "+gap+" kcal en "+Math.max(0,pgap)+" g eiwit te gaan."
@@ -2233,6 +2342,8 @@ function viewVoeding(){
   const vaak = {};
   Object.values(S.meals).flat().forEach(id=>{ vaak[id] = (vaak[id]||0)+1; });
   list = list.slice().sort((a,b)=>{
+    // Wat je niet volgens plan at hoort onderaan, niet tussen je recepten.
+    if(!!a.buiten !== !!b.buiten) return a.buiten ? 1 : -1;
     const fa = S.fav[a.id]?1:0, fb = S.fav[b.id]?1:0;
     if(fa!==fb) return fb-fa;
     return (vaak[b.id]||0) - (vaak[a.id]||0);
@@ -2244,7 +2355,11 @@ function viewVoeding(){
     h += '<details class="rec" data-rec="'+r.id+'" data-zoek="'+esc((r.nm+" "+r.items.map(([k])=>(ING[k]||{}).nm||"").join(" ")).toLowerCase())+'"'+(OPEN_REC.has(r.id)?" open":"")+'><summary>'+
       '<button class="ster'+(S.fav[r.id]?" aan":"")+'" data-act="fav" data-id="'+r.id+'" aria-label="'+(S.fav[r.id]?"Uit favorieten halen":"Als favoriet markeren")+'" aria-pressed="'+(!!S.fav[r.id])+'">★</button>'+
       '<span><span class="rnm">'+esc(r.nm)+'</span>'+(r.where&&r.where!=="beide"?'<br><span class="xs muted">'+esc(r.where==="kantoor"?"meeneembaar":"warm, thuis")+'</span>':'')+'</span>'+
-      '<span class="rmac num">'+((S.meals[VIEW_DATE]||[]).includes(r.id)?'<span class="chip ok">vandaag</span><br>':'')+r.kcal+' kcal<br>'+r.p+' g eiwit</span></summary>'+
+      '<span class="rmac num">'+r.kcal+' kcal<br>'+r.p+' g eiwit</span>'+
+      ((S.meals[VIEW_DATE]||[]).includes(r.id)
+        ? '<span class="chip ok staat">staat erin</span>'
+        : '<button class="btn sm pri nudag" data-act="addMeal" data-id="'+r.id+'">Vandaag</button>')+
+      '</summary>'+
       recBody(r, true)+'</details>';
   });
   return h;
@@ -2281,7 +2396,7 @@ function viewWeekmenu(){
     '<button class="btn sm ghost" data-act="weekWis">Wis de week</button></div></div>';
   for(let i=0;i<7;i++){
     const dd = addDays(mon,i), meals = mealsOn(dd), tot = totalMacros(meals);
-    tot.kcal += drankKcal(dd);
+    tot.kcal += drankKcal(dd); tot.c += drankSuiker(dd);
     const off = officeDay(dd), vandaag = dd===today();
     h += '<div class="card"'+(vandaag?' style="border-color:var(--accent)"':'')+'>'+
       '<div class="card-h"><h3>'+esc(DAYNM[parseISO(dd).getDay()])+'</h3>'+
@@ -2311,6 +2426,28 @@ function weekLeeg(mon){
     SLOTS.forEach(sl=>{ totaal++; if(m.some(x=>x.r.slot===sl.id)) gevuld++; }); }
   return {gevuld, totaal, open:totaal-gevuld};
 }
+// De poort naar volledige diepte vraagt drie opeenvolgende pijnvrije weken. Zonder
+// meting was dat iets dat je uit je hoofd moest bijhouden over zes weken heen.
+function poortWeken(ref){
+  const mon = mondayOf(ref || today());
+  let reeks = 0;
+  for(let w=0; w<12; w++){
+    const start = addDays(mon, -7*w);
+    const scores = [];
+    for(let i=0;i<7;i++){
+      const dd = addDays(start,i);
+      ["upperA","upperB"].forEach(k=>{ const l = S.logs[logKey(dd,k)]; if(l && l.schouder) scores.push(l.schouder); });
+    }
+    if(!scores.length) break;                        // geen gegevens: de reeks stopt hier
+    if(scores.every(x=>x==="rustig")) reeks++; else break;
+  }
+  return reeks;
+}
+function poortStand(){
+  const n = poortWeken();
+  if(n>=3) return "Drie pijnvrije weken op rij gehaald: de poort staat open.";
+  return n+" van de 3 pijnvrije weken op rij.";
+}
 function weekMacros(mon){
   let t={kcal:0,p:0,f:0,c:0}, dagen=0;
   for(let i=0;i<7;i++){ const dd=addDays(mon,i), m=mealsOn(dd);
@@ -2339,6 +2476,12 @@ function weekLijst(mon){
   return perCat;
 }
 // De lijst als platte tekst: dezelfde inhoud voor de kopieerknop en de deelknop.
+function kastRegel(rijen){
+  const op = rijen.filter(([k])=>KAST_VOORRAAD.includes(k)).map(([k])=>ING[k].nm);
+  if(!op.length) return "";
+  return '<p class="xs muted" style="margin-top:8px"><b>Kijk na wat op is:</b> '+esc(op.join(", "))+
+    '. Dit gaat weken mee, dus je koopt het niet elke week.</p>';
+}
 function lijstTekst(mon){
   const per = weekLijst(mon);
   let txt = "BOODSCHAPPEN PEIL\n"+shortDate(mon)+" tot "+shortDate(addDays(mon,6))+
@@ -2347,15 +2490,30 @@ function lijstTekst(mon){
   ["vlees","vis","zuivel","granen","groenten","fruit","kast"].forEach(c=>{
     if(!per[c]) return;
     txt += "\n"+CATNM[c].toUpperCase()+"\n";
-    per[c].sort((a,b)=>b[1]-a[1]).forEach(([k,q])=>{
-      const g=ING[k]; n++;
-      txt += "- "+g.nm+": "+(g.st ? q+"x" : (q>=1000 ? n1(q/1000)+" kg" : q+" g"))+"\n"; });
+    per[c].filter(([k])=>!(c==="kast" && KAST_VOORRAAD.includes(k)))
+      .sort((a,b)=>b[1]-a[1]).forEach(([k,q])=>{
+        const g=ING[k]; n++;
+        txt += "- "+g.nm+": "+koopMaat(g,q)+"\n"; });
+    if(c==="kast"){
+      const op = per[c].filter(([k])=>KAST_VOORRAAD.includes(k)).map(([k])=>ING[k].nm);
+      if(op.length) txt += "- Kijk na wat op is: "+op.join(", ")+"\n";
+    }
   });
   txt += "\nLOS DAARVAN\n- Whey en creatine: online, om de twee maanden\n- Rode linzen: een pak in de kast\n";
   txt += "\n"+n+" producten.\n";
   return txt;
 }
 function kanDelenTekst(){ return typeof navigator!=="undefined" && !!navigator.share; }
+// In de winkel koop je potten en blikken, geen grammen. Alleen waar een echte
+// verpakking bestaat (pk), anders blijft het gewicht staan.
+function koopMaat(g, q){
+  if(g.st) return q+"×";
+  if(g.pk) { const n = Math.max(1, Math.ceil(q/g.pk[0]));
+    return n+" "+(n===1 ? g.pk[1] : g.pk[2])+" ("+(q>=1000 ? n1(q/1000)+" kg" : q+" g")+")"; }
+  return q>=1000 ? n1(q/1000)+" kg" : q+" g";
+}
+// Kruiden en flesjes koop je niet per week. Die worden één regel om na te kijken.
+const KAST_VOORRAAD = ["soja","gochujang","mosterd","kappertje","sesamolie","lijnzaad","rozijn","augurk","curry","kokos","cacao","chia","olijf"];
 function viewShopping(){
   const mon = mondayOf(VIEW_DATE), perCat = weekLijst(mon);
   const heeft = Object.keys(perCat).length;
@@ -2373,11 +2531,12 @@ function viewShopping(){
     ["vlees","vis","zuivel","granen","groenten","fruit","kast"].forEach(c=>{
       if(!perCat[c]) return;
       h += '<div class="card"><h3>'+esc(CATNM[c])+'</h3><div class="scrollx"><table class="tbl" style="margin-top:7px"><tbody>'+
-        perCat[c].sort((a,b)=>b[1]-a[1]).map(([k,q])=>{
+        perCat[c].filter(([k])=>!(c==="kast" && KAST_VOORRAAD.includes(k)))
+        .sort((a,b)=>b[1]-a[1]).map(([k,q])=>{
           const g = ING[k];
-          const hoev = g.st ? q+"×" : (q>=1000 ? n1(q/1000)+" kg" : q+" g");
-          return '<tr><td>'+esc(g.nm)+'</td><td class="n">'+hoev+'</td></tr>';
-        }).join("")+'</tbody></table></div></div>';
+          return '<tr><td>'+esc(g.nm)+'</td><td class="n">'+esc(koopMaat(g,q))+'</td></tr>';
+        }).join("")+'</tbody></table>'+
+        (c==="kast" ? kastRegel(perCat[c]) : '')+'</div></div>';
     });
     h += '<div class="card"><h3>Los daarvan</h3><p class="small muted" style="margin-top:5px">Whey en creatine bestel je online, ongeveer één keer per twee maanden. En zet een pak rode linzen in de kast, een handvol door de saus is de goedkoopste manier om je vezels op peil te houden.</p></div>';
     return h;
@@ -3675,6 +3834,18 @@ const REC = [
  items:[["pangasius",260],["kokos",120],["curry",25],["bulgur",80],["broccoli",200],["gyoghurt",60]],
  hoe:"Currypasta kort aanfruiten, light kokosmelk erbij, laten pruttelen. Pangasius erin en acht minuten zachtjes garen, niet laten koken. Broccoli mee in de saus. Bulgur ernaast en de Griekse yoghurt erdoor van het vuur af, anders schift hij."},
 
+/* --- BUITEN HET SCHEMA --- schatting voor de dagen dat er iets anders op tafel komt.
+   Zonder deze regels blijft je dagtotaal op papier kloppen terwijl het dat niet deed. */
+{id:"X1", slot:"lunch", nm:"Buiten het schema · lichte lunch", min:0, buiten:true, items:[],
+ kcal:500, p:28, f:20, c:50, hoe:"Een schatting voor een broodje, een soep met brood of een kleine warme maaltijd. Kies liever te hoog dan te laag."},
+{id:"X2", slot:"lunch", nm:"Buiten het schema · stevige lunch", min:0, buiten:true, items:[],
+ kcal:800, p:38, f:35, c:80, hoe:"Restaurant, frituur of een uitgebreide warme lunch."},
+{id:"X3", slot:"diner", nm:"Buiten het schema · gewoon avondeten", min:0, buiten:true, items:[],
+ kcal:750, p:40, f:30, c:70, hoe:"Wat er thuis gekookt is zonder dat het uit dit plan komt. Vlees of vis, groenten, aardappelen of pasta."},
+{id:"X4", slot:"diner", nm:"Buiten het schema · uit eten of afhaal", min:0, buiten:true, items:[],
+ kcal:1100, p:45, f:55, c:100, hoe:"Restaurant, pizza, wok of frituur. Dit is bewust hoog geschat, want dat is het meestal ook."},
+{id:"X5", slot:"snack", nm:"Buiten het schema · snack", min:0, buiten:true, items:[],
+ kcal:300, p:8, f:15, c:35, hoe:"Koek, gebak, chips of wat er op kantoor rondging."},
 {id:"V6", slot:"vulling", nm:"Kaasplankje met emmental en walnoten", min:1,
  items:[["emmental",40],["walnoot",30],["appel",1],["knacke",1]],
  hoe:"Kaas, noten, appel in partjes en één knäckebröd op een plank. De enige vulling die je niet hoeft te mengen of te schillen, en de enige die hartig en zoet tegelijk is."},
@@ -3689,8 +3860,10 @@ const REC = [
  items:[["bloemkool",200],["wortel",150],["prei",100],["linzen",100],["pistolet",1]],
  hoe:"Alles in bouillon twintig minuten koken en half pureren, zodat er nog stukken in zitten. Maak een grote pot voor drie dagen. Dit is het vulmoment voor de dagen waarop je om vier uur al honger hebt."}
 ];
-REC.forEach(r=>{ const m = macros(r.items);
-  r.kcal=Math.round(m.kcal); r.p=Math.round(m.p); r.f=Math.round(m.f); r.c=Math.round(m.c);
+REC.forEach(r=>{
+  // De regels buiten het schema hebben geen ingrediënten; hun macro's staan met de hand.
+  if(!r.buiten){ const m = macros(r.items);
+    r.kcal=Math.round(m.kcal); r.p=Math.round(m.p); r.f=Math.round(m.f); r.c=Math.round(m.c); }
   r.st=r.hoe; });
 
 const PORTIE = [
@@ -3801,25 +3974,39 @@ document.addEventListener("click", e=>{
       for(let i=0;i<7;i++) delete S.meals[addDays(m,i)]; save(); render(); } return; }
   if(act==="weekVul"){
     const m = mondayOf(VIEW_DATE);
+    // Onthoud wat er deze week al staat, zodat de vuller niet twee keer hetzelfde kiest.
+    const gebruikt = new Set();
+    for(let i=0;i<7;i++) (S.meals[addDays(m,i)]||[]).forEach(id=>gebruikt.add(id));
     for(let i=0;i<7;i++){
       const dd = addDays(m,i), off = officeDay(dd);
       const heeft = () => (S.meals[dd]||[]).map(id=>REC.find(r=>r.id===id)).filter(Boolean);
       // eerst de vier vaste momenten, gespreid zodat je niet elke dag hetzelfde eet
       SLOTS.filter(sl=>sl.id!=="vulling").forEach((sl,si)=>{
         if(heeft().some(r=>r.slot===sl.id)) return;
-        let kies = REC.filter(r=>r.slot===sl.id);
+        let kies = REC.filter(r=>r.slot===sl.id && !r.buiten);
         if(sl.id==="lunch" && off!==null) kies = kies.filter(r=>r.where==="beide" || r.where===(off?"kantoor":"thuis"));
         if(!kies.length) return;
-        (S.meals[dd] = S.meals[dd]||[]).push(kies[(i*3 + si) % kies.length].id);
+        // Niet twee keer hetzelfde in één week, en wat je een ster gaf gaat voor.
+        const vrij = kies.filter(r=>!gebruikt.has(r.id));
+        const pool = vrij.length ? vrij : kies;
+        const gesorteerd = pool.slice().sort((a,b)=>(S.fav[b.id]?1:0)-(S.fav[a.id]?1:0));
+        const gekozen = gesorteerd[(i*3 + si) % gesorteerd.length];
+        gebruikt.add(gekozen.id);
+        (S.meals[dd] = S.meals[dd]||[]).push(gekozen.id);
       });
-      // daarna de vulling die de dag het dichtst bij het caloriedoel brengt
+      // Daarna de vulling. Die bestaat om je vet aan te vullen, niet je calorieën:
+      // de zes opties liggen binnen 61 kcal van elkaar maar lopen van 3 tot 33 g vet.
       if(!heeft().some(r=>r.slot==="vulling")){
-        const tot = totalMacros(heeft().map(r=>({r}))).kcal;
+        const zonder = totalMacros(heeft().map(r=>({r})));
         const opties = REC.filter(r=>r.slot==="vulling");
-        const beste = opties.reduce((a,b)=>
-          Math.abs(tot+b.kcal-S.targets.kcal) < Math.abs(tot+a.kcal-S.targets.kcal) ? b : a);
-        if(Math.abs(tot + beste.kcal - S.targets.kcal) < Math.abs(tot - S.targets.kcal))
+        const score = r => Math.abs(zonder.f + r.f - S.targets.fat);
+        const vrijV = opties.filter(r=>!gebruikt.has(r.id));
+        const poolV = vrijV.length ? vrijV : opties;
+        const beste = poolV.reduce((a,b)=> score(b) < score(a) ? b : a);
+        if(score(beste) < Math.abs(zonder.f - S.targets.fat)){
+          gebruikt.add(beste.id);
           (S.meals[dd] = S.meals[dd]||[]).push(beste.id);
+        }
       }
     }
     // Vanaf het dagoverzicht spring je meteen naar de week, anders zie je niet wat er gebeurd is.
@@ -3841,12 +4028,30 @@ document.addEventListener("click", e=>{
   if(act==="alc"){
     const x = DRANK.find(y=>y.id===t.dataset.id); if(!x) return;
     const cur = alcOp(VIEW_DATE);
-    S.alcohol[VIEW_DATE] = {u: Math.round((cur.u+x.u)*10)/10, kcal: cur.kcal + x.kcal, fk: cur.fk, sg: cur.sg};
+    S.alcohol[VIEW_DATE] = {u: Math.round((cur.u+x.u)*10)/10, kcal: cur.kcal + x.kcal, fk: cur.fk, sg: cur.sg,
+      log: (cur.log||[]).concat(x.id)};
     save(); render(); say(x.nm+" toegevoegd."); return; }
+  if(act==="schouder"){
+    const c = commitSession(SESS_DATE, TRAIN_SEG); if(!c) return;
+    c.schouder = c.schouder===t.dataset.v ? null : t.dataset.v;
+    save(); render();
+    say(c.schouder==="pijn" ? "Genoteerd. Bij pijn niet dieper gaan en de poortteller begint opnieuw."
+      : c.schouder==="zeurde" ? "Genoteerd. De poortteller begint opnieuw."
+      : c.schouder ? "Genoteerd. "+poortStand() : "Score gewist.");
+    return; }
+  if(act==="alcTerug"){
+    const cur = alcOp(VIEW_DATE); const lijst = (cur.log||[]).slice();
+    const id = lijst.pop(); if(!id) return;
+    const x = DRANK.find(y=>y.id===id) || FRIS.find(y=>y.id===id); if(!x) return;
+    S.alcohol[VIEW_DATE] = x.u!=null
+      ? {u: Math.max(0, Math.round((cur.u-x.u)*10)/10), kcal: Math.max(0,cur.kcal-x.kcal), fk: cur.fk, sg: cur.sg, log: lijst}
+      : {u: cur.u, kcal: cur.kcal, fk: Math.max(0,cur.fk-x.kcal), sg: Math.max(0,cur.sg-x.sg), log: lijst};
+    save(); render(); say(x.nm+" teruggenomen."); return; }
   if(act==="fris"){
     const x = FRIS.find(y=>y.id===t.dataset.id); if(!x) return;
     const cur = alcOp(VIEW_DATE);
-    S.alcohol[VIEW_DATE] = {u:cur.u, kcal:cur.kcal, fk: cur.fk + x.kcal, sg: cur.sg + x.sg};
+    S.alcohol[VIEW_DATE] = {u:cur.u, kcal:cur.kcal, fk: cur.fk + x.kcal, sg: cur.sg + x.sg,
+      log: (cur.log||[]).concat(x.id)};
     save(); render(); say(x.nm+" toegevoegd."); return; }
   if(act==="wstep"){
     const stap = parseFloat(t.dataset.w), tr0 = trend(VIEW_DATE);
@@ -3860,7 +4065,6 @@ document.addEventListener("click", e=>{
     if(el) el.scrollIntoView({block:"start", behavior:"smooth"});
     return; }
   if(act==="fav"){ const id=t.dataset.id; if(S.fav[id]) delete S.fav[id]; else S.fav[id]=1; save(); render(); return; }
-  if(act==="alcOpen"){ ALC_OPEN = true; render(); return; }
   if(act==="alcReset"){ delete S.alcohol[VIEW_DATE]; save(); render(); return; }
   if(act==="porties"){ PORTIES = +t.dataset.n; render(); return; }
   if(act==="macro"){ S.targets.protein=+t.dataset.p; S.targets.fat=+t.dataset.f; S.targets.carb=+t.dataset.c;
@@ -3890,17 +4094,6 @@ document.addEventListener("click", e=>{
     if(rx2.targets && rx2.targets[c.i]!=null) c.s.r = rx2.targets[c.i];
     save(); render();
     say("Doel ingevuld: "+(rx2.weight?nl(rx2.weight)+" kg, ":"")+((rx2.targets||[])[c.i]||"")+" herhalingen.");
-    return; }
-  if(act==="prevfill"){
-    const c = curSet(t); if(!c) return;
-    const woId2 = c.log.woId, ex2 = c.exId;
-    const hist2 = historyFor(woId2, ex2, logKey(c.log.date, woId2), c.log.date);
-    const pset = hist2.length ? (hist2[hist2.length-1].ex[ex2]||[]).filter(x=>x.r>0)[c.i] : null;
-    if(!pset) return;
-    if(pset.w) c.s.w = pset.w;
-    c.s.r = pset.r;
-    save(); render();
-    say("Vorige keer overgenomen: "+(pset.w?nl(pset.w)+" kg, ":"")+pset.r+" herhalingen.");
     return; }
   if(act==="exOpen"){
     const id = t.dataset.ex;
@@ -3995,8 +4188,10 @@ document.addEventListener("click", e=>{
   if(act==="copy"){ doCopy(); return; }
   if(act==="reset"){
     if(confirm("Alle gegevens en foto's wissen? Dit kan niet ongedaan gemaakt worden.")){
-      const sd=S.startDate; S=deepDefault(null); S.startDate=sd; S.tab="plan"; PHOTOS=[]; savePhotos();
-      PLAN_SEG="set"; flush(); render();
+      const sd=S.startDate;
+      try{ localStorage.removeItem(KEY); localStorage.removeItem(PKEY); }catch(_){}
+      S=deepDefault(null); S.startDate=sd; S.tab="plan"; PHOTOS=[]; savePhotos();
+      PLAN_SEG="set"; flushForce(); render();
     } return;
   }
 });
@@ -4094,9 +4289,10 @@ function addPhoto(file, input, isDoel){
       cv.width = Math.round(img.width*sc); cv.height = Math.round(img.height*sc);
       cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
       const data = cv.toDataURL("image/jpeg", 0.72);
+      const voor = PHOTOS.slice();       // terugdraaien als er geen ruimte is
       if(isDoel) PHOTOS = PHOTOS.filter(x=>!x.doel);
       PHOTOS.push({id:"p"+Date.now()+Math.round(Math.random()*999), date:VIEW_DATE, data, doel:!!isDoel});
-      if(savePhotos()) say("Foto toegevoegd."); else PHOTOS.pop();
+      if(savePhotos()) say("Foto toegevoegd."); else PHOTOS = voor;
       if(input) input.value = "";
       render();
     };
@@ -4143,10 +4339,12 @@ async function doExport(){
       const a = document.createElement("a"); a.href=url; a.download=filename;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(url), 2000);
-      ioMsg("Als er geen bestand verscheen, blokkeert deze weergave downloads. Gebruik dan ‘Kopieer als tekst’.");
+      ioMsg("Als er geen bestand verscheen, blokkeert deze weergave downloads. Gebruik dan ‘Delen’ of ‘Kopieer als tekst’. Je back-up is dan niet geteld.");
     }catch(err){ ioMsg("Downloaden kan hier niet. Gebruik ‘Kopieer als tekst’."); return; }
   } else ioMsg("Back-up opgeslagen als "+filename+".");
-  S.lastExport = today(); save();
+  // Alleen een bevestigde download telt als back-up. Een link die misschien niets
+  // deed mag de waarschuwing van 21 dagen niet stilzetten.
+  if(done){ S.lastExport = today(); save(); }
 }
 async function doCopy(){
   try{ await navigator.clipboard.writeText(JSON.stringify(Object.assign({}, S, {_photos: PHOTOS})));
@@ -4171,8 +4369,9 @@ function doImport(file, input){
     let nFoto = 0;
     if(Array.isArray(obj._photos)){ PHOTOS = obj._photos; nFoto = PHOTOS.length; savePhotos(); }
     delete obj._photos;
-    S = deepDefault(obj); S.rev = (S.rev||0)+1; flush(); render();
-    ioMsg("Back-up geladen"+(nFoto?", inclusief "+nFoto+" foto\'s":"")+". Je vorige gegevens zijn als reservekopie bewaard.");
+    S = deepDefault(obj); flushForce(); render();
+    ioMsg(saveOk===false ? "Het bestand is gelezen maar kon niet worden opgeslagen. Sluit andere vensters van Peil en probeer opnieuw."
+      : "Back-up geladen"+(nFoto?", inclusief "+nFoto+" foto\'s":"")+". Je vorige gegevens zijn als reservekopie bewaard.");
     if(input) input.value="";
   };
   fr.readAsText(file);
