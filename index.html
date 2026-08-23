@@ -85,6 +85,15 @@ input,select,textarea{font:inherit; color:inherit}
 .check.auto .tgt{margin-left:auto}
 .rec summary .nudag,.rec summary .staat{flex:0 0 auto; margin-left:8px; white-space:nowrap}
 .rec summary .nudag{min-height:38px; padding:0 11px}
+.dagmenu{margin-top:6px; display:flex; flex-direction:column; gap:2px}
+.mrij{display:flex; gap:8px; align-items:baseline; font-size:var(--fs-200)}
+.mrij .mslot{flex:0 0 74px; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:var(--fs-100);
+  letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--text-3)}
+.mrij .mnm{flex:1; color:var(--text-2)}
+.mrij.tot{margin-top:3px; padding-top:4px; border-top:1px solid var(--line)}
+.mrij.tot .mnm{color:var(--text); font-variant-numeric:tabular-nums}
+.mtwee{margin-left:6px; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:var(--fs-100);
+  letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--accent)}
 .wkstrook{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
 .wkcel{display:flex; flex-direction:column; align-items:center; gap:2px; min-height:56px;
   padding:7px 2px 5px; border:1px solid var(--line); border-radius:2px; background:none;
@@ -1641,11 +1650,19 @@ function viewWeek(){
         (r.touwGepland ? '<span class="chip '+(r.touw>0?"ok":"")+'">touw'+(r.touw>0?" ✓ "+r.touw:"")+'</span>' : '')+
         (r.alc>0 ? '<span class="chip">'+n1(r.alc)+' eh</span>' : '')+
         '</div>'+
-        '<p class="xs muted" style="margin-top:4px">'+
         (maalt.length
-          ? esc(maalt.map(m=>m.nm).join(" · "))+' · '+Math.round(totalMacros(maalt.map(m=>({r:m}))).kcal)+' kcal'
-          : 'Nog geen maaltijden gekozen')+
-        '</p></div>';
+          ? '<div class="dagmenu">'+SLOTS.map(sl=>{
+              const inSlot = maalt.filter(m=>m.slot===sl.id);
+              if(!inSlot.length) return "";
+              return '<div class="mrij"><span class="mslot">'+esc(sl.nm)+'</span>'+
+                '<span class="mnm">'+esc(inSlot.map(m=>m.nm).join(", "))+
+                (portieVan(sl.id)===2 ? '<span class="mtwee">voor twee</span>' : '')+'</span></div>';
+            }).join("")+
+            '<div class="mrij tot"><span class="mslot">Samen</span><span class="mnm">'+
+            Math.round(totalMacros(maalt.map(m=>({r:m}))).kcal)+' kcal · '+
+            Math.round(totalMacros(maalt.map(m=>({r:m}))).p)+' g eiwit</span></div></div>'
+          : '<p class="xs muted" style="margin-top:4px">Nog geen maaltijden gekozen</p>')+
+        '</div>';
     }).join("")+'</div>'+
     '<div class="row" style="margin-top:11px;gap:8px;flex-wrap:wrap">'+
     '<button class="btn sm" data-act="goto" data-tab="voeding" data-fseg="week">Weekmenu invullen</button>'+
@@ -2376,7 +2393,8 @@ function viewVoeding(){
         : '<p class="small muted">Je week staat volledig ingevuld.</p>')+
       '<div class="row" style="margin-top:8px;flex-wrap:wrap">'+
       '<button class="btn sm ghost" data-fseg-btn="week">Weekmenu aanpassen</button>'+
-      '<button class="btn sm ghost" data-fseg-btn="lijst">Boodschappenlijst</button></div></div>';
+      '<button class="btn sm ghost" data-fseg-btn="lijst">Boodschappenlijst</button></div>'+
+      kookKiezer()+'</div>';
 
     SLOTS.forEach(sl=>{
       const inSlot = meals.filter(x=>x.r.slot===sl.id);
@@ -2452,6 +2470,7 @@ function viewWeekmenu(){
     '<button class="btn pri wide" style="margin-top:11px" data-act="weekVul">'+
       (leeg.gevuld===0 ? 'Vul de hele week in' : 'Vul de '+leeg.open+' lege plekken aan')+'</button>'+
     '<p class="xs muted" style="margin-top:7px">Peil kiest per moment een gerecht dat past bij je kantoordagen en je caloriedoel. Daarna pas je met de plus- en kruisknoppen aan wat je liever anders hebt.</p>'+
+    kookKiezer()+
     '<div class="row" style="margin-top:10px;flex-wrap:wrap">'+
     '<button class="btn sm ghost" data-act="weekShift" data-d="-7">← vorige</button>'+
     '<button class="btn sm ghost" data-act="weekShift" data-d="7">volgende →</button>'+
@@ -2468,7 +2487,8 @@ function viewWeekmenu(){
       const gekozen = meals.filter(x=>x.r.slot===sl.id);
       h += '<div class="row small" style="padding:5px 0;border-bottom:1px solid var(--line)">'+
         '<span class="chip" style="min-width:64px">'+esc(sl.nm)+'</span>';
-      if(gekozen.length) h += '<span style="flex:1">'+gekozen.map(x=>esc(x.r.nm)).join(", ")+'</span>'+
+      if(gekozen.length) h += '<span style="flex:1">'+gekozen.map(x=>esc(x.r.nm)).join(", ")+
+        (portieVan(sl.id)===2 ? ' <span class="chip acc">×2</span>' : '')+'</span>'+
         gekozen.map(x=>'<button class="btn sm ghost" data-act="delMealD" data-d="'+dd+'" data-id="'+x.r.id+'" aria-label="'+esc("Verwijder "+x.r.nm)+'">×</button>').join("");
       else h += '<span style="flex:1" class="muted">—</span>';
       h += '<button class="btn sm" data-act="pick" data-d="'+dd+'" data-slot="'+sl.id+'">+</button></div>';
