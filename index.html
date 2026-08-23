@@ -85,6 +85,20 @@ input,select,textarea{font:inherit; color:inherit}
 .check.auto .tgt{margin-left:auto}
 .rec summary .nudag,.rec summary .staat{flex:0 0 auto; margin-left:8px; white-space:nowrap}
 .rec summary .nudag{min-height:38px; padding:0 11px}
+.wkstrook{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+.wkcel{display:flex; flex-direction:column; align-items:center; gap:2px; min-height:56px;
+  padding:7px 2px 5px; border:1px solid var(--line); border-radius:2px; background:none;
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+.wkcel .dag{font-size:var(--fs-100); letter-spacing:var(--ls-caps); text-transform:uppercase; color:var(--text-3)}
+.wkcel .wat{font-size:var(--fs-200); font-weight:600; color:var(--text-2); line-height:1.1}
+.wkcel .stip{font-size:10px; line-height:1; height:10px; color:var(--ok)}
+.wkcel.klaar{border-color:var(--ok)} .wkcel.klaar .wat{color:var(--ok)}
+.wkcel.gemist{border-color:var(--bad)} .wkcel.gemist .wat,.wkcel.gemist .stip{color:var(--bad)}
+.wkcel.open .wat{color:var(--text)}
+.wkcel.rust,.wkcel.touw{border-style:dashed}
+.wkcel.touw .wat{color:var(--accent)}
+.wkcel.nu{box-shadow:inset 0 -2px 0 var(--accent)}
+.wkcel.nu .dag{color:var(--accent)}
 .toast{position:fixed; left:50%; transform:translateX(-50%) translateY(8px);
   bottom:calc(74px + env(safe-area-inset-bottom, 0px)); z-index:60;
   width:max-content; max-width:min(92vw,420px); padding:11px 14px; border-radius:3px;
@@ -735,7 +749,7 @@ const DEF = {
     glucosePp:101, creat:0.93, urinezuur:5.6,
     chol:158, hdl:39, ldl:104, nonhdl:119, tg:98,
     alt:26, ggt:28, alkfos:80, crp:0.8, tsh:1.31, psa:0.68}}],
-  lastExport:null, tab:"vandaag", fav:{}
+  lastExport:null, tab:"vandaag", fav:{}, kookmodus:"solo"
 };
 const VIEWS = ["vandaag","training","voeding","meting","plan"];
 let S = null, PHOTOS = [], saveOk = true, saveTimer = null;
@@ -1934,6 +1948,35 @@ function nearestDateFor(woId){
   return addDays(VIEW_DATE, -((d.getDay() - want + 7) % 7));
 }
 
+// Welke sessie op welke dag valt, in één oogopslag. Je schema ligt vast
+// (ma, di, do, za kracht · wo, vr, zo touw) maar dat stond nergens als overzicht.
+const DAYKORT = ["zo","ma","di","wo","do","vr","za"];
+function weekStrook(){
+  const mon = mondayOf(VIEW_DATE), vandaag = today();
+  const wkD = clamp(weekNo(VIEW_DATE)||1,1,24);
+  const cellen = [];
+  for(let i=0;i<7;i++){
+    const dd = addDays(mon,i), dow = parseISO(dd).getDay();
+    const woId = woForDate(dd);
+    const log = woId ? S.logs[logKey(dd,woId)] : null;
+    const gedaan = !!(log && hasReps(log));
+    const touw = cardioPlanned(dd) && cardioFor(wkD).contacts !== 0 && S.medOk;
+    const c = S.cardio[dd], touwGedaan = !!(c && c.k==="touw" && c.v>0);
+    const nu = dd===vandaag;
+    const laat = !gedaan && dd < vandaag && woId;
+    const kort = woId ? WO_NM[woId].replace("Upper","Up").replace("Lower","Lo") : (touw ? "touw" : "rust");
+    const klas = ["wkcel", nu?"nu":"", woId?(gedaan?"klaar":(laat?"gemist":"open")):(touw?"touw":"rust")].filter(Boolean).join(" ");
+    cellen.push(woId
+      ? '<button class="'+klas+'" data-act="gaNaarSessie" data-d="'+dd+'" data-wo="'+woId+'">'+
+        '<span class="dag">'+DAYKORT[dow]+'</span><span class="wat">'+esc(kort)+'</span>'+
+        '<span class="stip">'+(gedaan?"✓":(laat?"·":""))+'</span></button>'
+      : '<div class="'+klas+'"><span class="dag">'+DAYKORT[dow]+'</span><span class="wat">'+esc(kort)+'</span>'+
+        '<span class="stip">'+(touw&&touwGedaan?"✓":"")+'</span></div>');
+  }
+  return '<div class="card" style="padding-top:var(--s3)"><div class="wkstrook">'+cellen.join("")+'</div>'+
+    '<p class="xs muted" style="margin-top:8px">Maandag Upper A, dinsdag Lower A, donderdag Upper B, zaterdag Lower B. '+
+    'Woensdag, vrijdag en zondag is het springtouw. Tik een dag aan om die sessie te openen.</p></div>';
+}
 function viewTraining(){
   if(weekNo(VIEW_DATE)===null) return setupCard();
   if(!TRAIN_SEG) TRAIN_SEG = woForDate(VIEW_DATE) || "upperA";
@@ -1941,6 +1984,7 @@ function viewTraining(){
     WO_ORDER.map(k=>'<button data-seg="'+k+'" aria-pressed="'+(TRAIN_SEG===k)+'">'+WO_NM[k]+'</button>').join("")+
     '<button data-seg="cardio" aria-pressed="'+(TRAIN_SEG==="cardio")+'">Cardio</button>'+
     '<button data-seg="hist" aria-pressed="'+(TRAIN_SEG==="hist")+'">Historiek</button></div>';
+  h += weekStrook();
   if(TRAIN_SEG==="hist") return h + viewHistory();
   if(TRAIN_SEG==="cardio") return h + viewCardio();
 
@@ -2225,7 +2269,28 @@ function viewHistory(){
 /* ---------------- 14. VIEW: VOEDING ---------------- */
 let FOOD_SEG = "dag";
 let PICK = null;   // {date, slot} tijdens het kiezen van een maaltijd
-let PORTIES = 1;   // ingrediënten tonen voor één of twee personen
+// Voor wie kook je. Dit hoort bij je gegevens, niet bij je schermtoestand: het
+// bepaalt je boodschappenlijst en dat moet na een herstart nog kloppen.
+// "solo" = alles voor jou · "diner" = avondeten voor twee · "alles" = alles voor twee
+const KOOK = [
+  {id:"solo",  nm:"Alleen voor mij",     kort:"voor mij"},
+  {id:"diner", nm:"Avondeten voor twee", kort:"avondeten voor twee"},
+  {id:"alles", nm:"Alles voor twee",     kort:"alles voor twee"}
+];
+function kookVoor(){ return KOOK.find(k=>k.id===S.kookmodus) ? S.kookmodus : "solo"; }
+// Hoeveel keer koop je de ingrediënten van dit gerecht?
+function portieVan(slot){
+  const m = kookVoor();
+  if(m==="alles") return 2;
+  if(m==="diner" && slot==="diner") return 2;
+  return 1;
+}
+function kookUitleg(){
+  const m = kookVoor();
+  return m==="alles" ? "Alle gerechten worden voor twee gekocht."
+       : m==="diner" ? "Alleen het avondeten wordt voor twee gekocht, de rest voor jou alleen."
+       : "Alles wordt voor jou alleen gekocht.";
+}
 const OPEN_REC = new Set();
 const slotOf = id => SLOTS.find(s=>s.id===id) || {id, nm:id, t:""};
 function mealsOn(d){ return (S.meals[d]||[]).map(id=>REC.find(r=>r.id===id)).filter(Boolean).map(r=>({r})); }
@@ -2335,10 +2400,7 @@ function viewVoeding(){
   h += '<div class="card"><div class="card-h"><h2>'+esc(sl.nm)+'</h2><span class="sub num">'+sl.t+' · ±'+sl.kcal+' kcal</span></div>'+
        '<p class="small muted">'+esc(sl.intro)+'</p>'+
        (FOOD_SEG==="lunch" && office!==null ? '<p class="xs muted" style="margin-top:7px">Gefilterd op '+(office?"kantoordag":"thuiswerkdag")+'.</p>' : '')+
-       (FOOD_SEG==="diner" ? '<div class="seg" style="margin:11px 0 0" role="group" aria-label="Voor hoeveel personen">'+
-         '<button data-act="porties" data-n="1" aria-pressed="'+(PORTIES===1)+'">Voor mij</button>'+
-         '<button data-act="porties" data-n="2" aria-pressed="'+(PORTIES===2)+'">Voor ons twee</button></div>'+
-         '<p class="xs muted" style="margin-top:8px">De macro\'s hieronder blijven altijd van jouw portie. Alleen de boodschappen verdubbelen.</p>' : '')+'</div>';
+       kookKiezer()+'</div>';
   const vaak = {};
   Object.values(S.meals).flat().forEach(id=>{ vaak[id] = (vaak[id]||0)+1; });
   list = list.slice().sort((a,b)=>{
@@ -2464,7 +2526,7 @@ function weekLijst(mon){
   for(let i=0;i<7;i++){
     mealsOn(addDays(mon,i)).forEach(x=>{
       // Kook je het avondeten voor twee, dan koop je er ook voor twee.
-      const maal = (x.r.slot==="diner" && PORTIES===2) ? 2 : 1;
+      const maal = portieVan(x.r.slot);
       x.r.items.forEach(([k,q])=>{ som[k]=(som[k]||0)+q*maal; });
     });
   }
@@ -2485,7 +2547,7 @@ function kastRegel(rijen){
 function lijstTekst(mon){
   const per = weekLijst(mon);
   let txt = "BOODSCHAPPEN PEIL\n"+shortDate(mon)+" tot "+shortDate(addDays(mon,6))+
-    "\nAlles bij Colruyt"+(PORTIES===2?", avondeten voor twee":"")+"\n";
+    "\nAlles bij Colruyt, "+KOOK.find(k=>k.id===kookVoor()).kort+"\n";
   let n = 0;
   ["vlees","vis","zuivel","granen","groenten","fruit","kast"].forEach(c=>{
     if(!per[c]) return;
@@ -2517,13 +2579,15 @@ const KAST_VOORRAAD = ["soja","gochujang","mosterd","kappertje","sesamolie","lij
 function viewShopping(){
   const mon = mondayOf(VIEW_DATE), perCat = weekLijst(mon);
   const heeft = Object.keys(perCat).length;
-  let h = '<div class="card"><div class="card-h"><h2>Boodschappen</h2><span class="sub">'+esc(shortDate(mon))+' – '+esc(shortDate(addDays(mon,6)))+'</span></div>';
+  let h = '<div class="card"><div class="card-h"><h2>Boodschappen</h2><span class="sub">'+esc(shortDate(mon))+' – '+esc(shortDate(addDays(mon,6)))+
+    '<br>'+esc(KOOK.find(k=>k.id===kookVoor()).kort)+'</span></div>';
   if(heeft){
     h += '<p class="small muted">Precies wat je weekmenu vraagt, opgeteld en op volgorde van het winkelpad. Alles ligt bij Colruyt.</p>'+
       '<div class="row" style="margin-top:11px;flex-wrap:wrap">'+
       (kanDelenTekst() ? '<button class="btn pri" data-act="deelLijst">Doorsturen</button>' : '')+
       '<button class="btn'+(kanDelenTekst()?"":" pri")+'" data-act="kopieerLijst">Kopiëren</button>'+
       '<button class="btn ghost" data-fseg-btn="week">Weekmenu aanpassen</button></div>'+
+      kookKiezer()+
       '<p class="xs muted" style="margin-top:8px">'+
         (kanDelenTekst()
           ? 'Doorsturen opent je deelvenster, dus je stuurt de lijst naar Berichten, WhatsApp, je Notities of je mail. Kopiëren zet dezelfde tekst op je klembord.'
@@ -3636,10 +3700,21 @@ function maatVan(g, q){
   return txt+" "+(mv ? maat[2] : maat[1])+(g.mzelf ? "" : " "+g.nm);
 }
 // Het recept zelf, herbruikbaar: in de receptenlijst én bij de maaltijd van vandaag.
+// Eén plek waar je kiest voor wie er gekookt wordt. Staat bij Avondeten, bij de
+// boodschappen en bij de instellingen, altijd met dezelfde knoppen.
+function kookKiezer(){
+  const m = kookVoor();
+  return '<div class="eyebrow" style="margin-top:13px">Voor wie kook je</div>'+
+    '<div class="seg" style="margin:5px 0 0" role="group" aria-label="Voor hoeveel personen">'+
+    KOOK.map(k=>'<button data-act="kook" data-m="'+k.id+'" aria-pressed="'+(m===k.id)+'">'+esc(k.nm)+'</button>').join("")+
+    '</div>'+
+    '<p class="xs muted" style="margin-top:8px">'+esc(kookUitleg())+
+    ' Je macro\'s blijven altijd die van jouw eigen portie; alleen de boodschappen verdubbelen.</p>';
+}
 function recBody(r, metKnop){
   return '<div class="rbody"><div class="row xs muted"><span>'+r.min+' minuten</span>'+
-    '<span style="margin-left:auto">'+(PORTIES===2?"2 porties koken":"1 portie")+'</span></div>'+
-    '<ul>'+ingLijst(r.items,PORTIES).map(i=>'<li>'+esc(i)+'</li>').join("")+'</ul>'+
+    '<span style="margin-left:auto">'+(portieVan(r.slot)===2?"koken voor twee":"1 portie")+'</span></div>'+
+    '<ul>'+ingLijst(r.items,portieVan(r.slot)).map(i=>'<li>'+esc(i)+'</li>').join("")+'</ul>'+
     '<p class="small" style="margin-top:9px">'+esc(r.st)+'</p>'+
     '<div class="macrow"><span class="mac">Per portie</span><span class="mac">Eiwit <b>'+r.p+' g</b></span>'+
     '<span class="mac">Vet <b>'+r.f+' g</b></span><span class="mac">Koolh. <b>'+r.c+' g</b></span>'+
@@ -4066,7 +4141,7 @@ document.addEventListener("click", e=>{
     return; }
   if(act==="fav"){ const id=t.dataset.id; if(S.fav[id]) delete S.fav[id]; else S.fav[id]=1; save(); render(); return; }
   if(act==="alcReset"){ delete S.alcohol[VIEW_DATE]; save(); render(); return; }
-  if(act==="porties"){ PORTIES = +t.dataset.n; render(); return; }
+  if(act==="kook"){ S.kookmodus = t.dataset.m; save(); render(); say(kookUitleg()); return; }
   if(act==="macro"){ S.targets.protein=+t.dataset.p; S.targets.fat=+t.dataset.f; S.targets.carb=+t.dataset.c;
     save(); render(); say("Macroverdeling aangepast."); return; }
   if(act==="office"){ S.officeDays[VIEW_DATE] = t.dataset.v==="1"; save(); render(); return; }
@@ -4078,6 +4153,9 @@ document.addEventListener("click", e=>{
   if(act==="dToday"){ VIEW_DATE=today(); SESS_DATE=null; render(); return; }
   if(act==="open"){ S.tab="training"; TRAIN_SEG=t.dataset.wo; SESS_DATE=VIEW_DATE; save(); render(); window.scrollTo(0,0); return; }
   if(act==="sessQuick"){ SESS_DATE = t.dataset.d; OPEN_EX.clear(); OPEN_CTX=null; render(); window.scrollTo(0,0); return; }
+  if(act==="gaNaarSessie"){
+    TRAIN_SEG = t.dataset.wo; SESS_DATE = t.dataset.d;
+    save(); render(); window.scrollTo(0,0); return; }
   if(act==="recalc"){ const l=commitSession(SESS_DATE,TRAIN_SEG); if(l){ recalcSession(l); render(); } return; }
   if(act==="setW"){
     const log2 = commitSession(SESS_DATE, TRAIN_SEG); if(!log2) return;
@@ -4464,7 +4542,7 @@ function importCsv(file, input){
 const UI_KEY = "ijzer-touw-ui";
 function saveUI(){
   try{ sessionStorage.setItem(UI_KEY, JSON.stringify({
-    TRAIN_SEG, SESS_DATE, FOOD_SEG, PLAN_SEG, DAG_SEG, MEET_SEG, PORTIES,
+    TRAIN_SEG, SESS_DATE, FOOD_SEG, PLAN_SEG, DAG_SEG, MEET_SEG,
     tech:[...OPEN_TECH], y:window.scrollY, REST, tab:S&&S.tab
   })); }catch(e){}
 }
@@ -4475,7 +4553,6 @@ function loadUI(){
   if(u.TRAIN_SEG) TRAIN_SEG = u.TRAIN_SEG;
   if(u.SESS_DATE) SESS_DATE = u.SESS_DATE;
   if(u.FOOD_SEG)  FOOD_SEG  = u.FOOD_SEG;
-  if(u.PORTIES===2) PORTIES = 2;
   if(u.PLAN_SEG)  PLAN_SEG  = u.PLAN_SEG;
   if(u.DAG_SEG)   DAG_SEG   = u.DAG_SEG;
   if(u.MEET_SEG)  MEET_SEG  = (u.MEET_SEG==="meting" ? "nu" : u.MEET_SEG);
