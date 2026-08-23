@@ -85,6 +85,18 @@ input,select,textarea{font:inherit; color:inherit}
 .check.auto .tgt{margin-left:auto}
 .rec summary .nudag,.rec summary .staat{flex:0 0 auto; margin-left:8px; white-space:nowrap}
 .rec summary .nudag{min-height:38px; padding:0 11px}
+.wmrij{border-bottom:1px solid var(--line)}
+.wmrij>summary{display:flex; align-items:center; gap:8px; padding:8px 0; min-height:44px;
+  list-style:none; cursor:pointer}
+.wmrij>summary::-webkit-details-marker{display:none}
+.wmrij>summary .chip{flex:0 0 auto; min-width:70px; justify-content:center}
+.wmrij .wmnm{flex:1; min-width:0; font-size:var(--fs-300)}
+.wmrij .wmmac{flex:0 0 auto; text-align:right; font-size:var(--fs-100); color:var(--text-3); line-height:1.25}
+.wmrij[open]>summary{border-bottom:1px solid var(--line)}
+.wmrij[open]>summary .wmnm{font-weight:600; color:var(--accent)}
+.wmrij.leeg{display:flex; align-items:center; gap:8px; padding:6px 0; min-height:40px}
+.wmrij.leeg .chip{flex:0 0 auto; min-width:70px; justify-content:center}
+.wmrij.leeg .wmnm{flex:1; font-size:var(--fs-200)}
 .dagmenu{margin-top:6px; display:flex; flex-direction:column; gap:2px}
 .mrij{display:flex; gap:8px; align-items:baseline; font-size:var(--fs-200)}
 .mrij .mslot{flex:0 0 74px; font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:var(--fs-100);
@@ -2485,13 +2497,29 @@ function viewWeekmenu(){
       '<span class="num">'+Math.round(tot.kcal)+' kcal · '+Math.round(tot.p)+' g</span></span></div>';
     SLOTS.forEach(sl=>{
       const gekozen = meals.filter(x=>x.r.slot===sl.id);
-      h += '<div class="row small" style="padding:5px 0;border-bottom:1px solid var(--line)">'+
-        '<span class="chip" style="min-width:64px">'+esc(sl.nm)+'</span>';
-      if(gekozen.length) h += '<span style="flex:1">'+gekozen.map(x=>esc(x.r.nm)).join(", ")+
-        (portieVan(sl.id)===2 ? ' <span class="chip acc">×2</span>' : '')+'</span>'+
-        gekozen.map(x=>'<button class="btn sm ghost" data-act="delMealD" data-d="'+dd+'" data-id="'+x.r.id+'" aria-label="'+esc("Verwijder "+x.r.nm)+'">×</button>').join("");
-      else h += '<span style="flex:1" class="muted">—</span>';
-      h += '<button class="btn sm" data-act="pick" data-d="'+dd+'" data-slot="'+sl.id+'">+</button></div>';
+      if(!gekozen.length){
+        h += '<div class="wmrij leeg"><span class="chip">'+esc(sl.nm)+'</span>'+
+          '<span class="wmnm muted">nog niets gekozen</span>'+
+          '<button class="btn sm" data-act="pick" data-d="'+dd+'" data-slot="'+sl.id+'">Kies</button></div>';
+        return;
+      }
+      // Klik het gerecht open en je ziet de ingrediënten en de bereiding, zonder
+      // dat je naar het receptenoverzicht hoeft.
+      gekozen.forEach(x=>{
+        const sleutel = dd+"|"+x.r.id;
+        h += '<details class="wmrij" data-rec="'+esc(sleutel)+'"'+(OPEN_REC.has(sleutel)?" open":"")+'>'+
+          '<summary><span class="chip">'+esc(sl.nm)+'</span>'+
+          '<span class="wmnm">'+esc(x.r.nm)+
+            (portieVan(sl.id)===2 ? ' <span class="chip acc">×2</span>' : '')+'</span>'+
+          '<span class="wmmac num">'+x.r.kcal+' kcal<br>'+x.r.p+' g</span></summary>'+
+          recBody(x.r, false)+
+          '<div class="row" style="padding:0 12px 12px;gap:6px;flex-wrap:wrap">'+
+          '<button class="btn sm" data-act="pickVerv" data-d="'+dd+'" data-slot="'+sl.id+'" data-id="'+x.r.id+'">Vervangen</button>'+
+          '<button class="btn sm ghost" data-act="pick" data-d="'+dd+'" data-slot="'+sl.id+'">Erbij</button>'+
+          '<button class="btn sm ghost" data-act="delMealD" data-d="'+dd+'" data-id="'+x.r.id+'">Weghalen</button>'+
+          '</div></details>';
+      });
+
     });
     h += '</div>';
   }
@@ -4058,10 +4086,19 @@ document.addEventListener("click", e=>{
   if(t.dataset.pseg && !act){ PLAN_SEG=t.dataset.pseg; render(); window.scrollTo(0,0); return; }
 
   if(act==="setStart"){ const i=$("#startInput"); if(i&&i.value){ S.startDate=mondayOf(i.value); save(); render(); } return; }
+  if(act==="pickVerv"){
+    PICK = {slot:t.dataset.slot, date:t.dataset.d, y:window.scrollY, vervang:t.dataset.id};
+    render(); window.scrollTo(0,0); return; }
   if(act==="pick"){ PICK={date:t.dataset.d, slot:t.dataset.slot, y:window.scrollY}; render(); window.scrollTo(0,0); return; }
   if(act==="pickCancel"){ const y=PICK&&PICK.y||0; PICK=null; render(); window.scrollTo(0,y); return; }
   if(act==="pickSet"){
-    if(PICK){ const y=PICK.y||0; (S.meals[PICK.date] = S.meals[PICK.date]||[]).push(t.dataset.id); save(); PICK=null; render(); window.scrollTo(0,y); }
+    if(PICK){
+      const y=PICK.y||0, lijst = (S.meals[PICK.date] = S.meals[PICK.date]||[]);
+      // Bij vervangen gaat het oude gerecht eruit op de plek waar het stond.
+      const i = PICK.vervang ? lijst.indexOf(PICK.vervang) : -1;
+      if(i>=0) lijst.splice(i,1,t.dataset.id); else lijst.push(t.dataset.id);
+      save(); PICK=null; render(); window.scrollTo(0,y);
+    }
     return; }
   if(act==="delMealD"){ const a=S.meals[t.dataset.d]||[]; const i=a.indexOf(t.dataset.id); if(i>=0) a.splice(i,1); save(); render(); return; }
   if(act==="weekShift"){ VIEW_DATE = addDays(mondayOf(VIEW_DATE), +t.dataset.d); if(VIEW_DATE>today()) VIEW_DATE=today(); render(); return; }
