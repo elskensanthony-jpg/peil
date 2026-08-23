@@ -119,8 +119,8 @@ header.top h1{font-size:11px; letter-spacing:.2em; color:var(--text-2); font-wei
 nav.tabs{
   position:fixed; left:0; right:0; bottom:0; z-index:30;
   background:var(--panel); border-top:1px solid var(--line); box-shadow:none;
-  padding:6px calc(6px + env(safe-area-inset-right, 0px))
-          calc(6px + env(safe-area-inset-bottom, 0px)) calc(6px + env(safe-area-inset-left, 0px));
+  padding:5px max(6px, env(safe-area-inset-right, 0px))
+          max(5px, env(safe-area-inset-bottom, 0px)) max(6px, env(safe-area-inset-left, 0px));
   display:grid; grid-template-columns:repeat(4,1fr); gap:2px;
 }
 nav.tabs button{font-size:var(--fs-100)}
@@ -129,7 +129,7 @@ nav.tabs button{font-size:var(--fs-100)}
   font-weight:600; display:inline-flex; align-items:center; gap:6px; white-space:nowrap}
 .planbtn[aria-current]{background:var(--accent); color:var(--on-accent); border-color:transparent}
 nav.tabs button{
-  background:none; border:0; padding:8px 1px 7px; border-radius:var(--r-sm); min-height:48px;
+  background:none; border:0; padding:5px 1px 4px; border-radius:var(--r-sm); min-height:44px;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
   font-size:10px; font-weight:600; color:var(--text-3);
 }
@@ -2190,6 +2190,20 @@ function viewVoeding(){
        : "Je zit binnen de marge.")+'</p>';
     h += '</div>';
 
+    // Je plant je week één keer en past daarna aan. Die knop hoort hier te staan,
+    // niet weggestopt achter een tabblad dat je pas ziet als je ernaar zoekt.
+    const lg = weekLeeg(mondayOf(d));
+    h += '<div class="card"><div class="card-h"><h2>Deze week</h2>'+
+      '<span class="sub num">'+lg.gevuld+' van '+lg.totaal+' momenten</span></div>'+
+      (lg.open
+        ? '<p class="small muted">Plan je week in één keer, pas daarna aan wat je liever anders eet. De boodschappenlijst telt vanzelf op wat je dan nodig hebt.</p>'+
+          '<button class="btn pri wide" style="margin-top:10px" data-act="weekVul" data-terug="week">'+
+            (lg.gevuld===0 ? 'Vul de hele week in' : 'Vul de '+lg.open+' lege plekken aan')+'</button>'
+        : '<p class="small muted">Je week staat volledig ingevuld.</p>')+
+      '<div class="row" style="margin-top:8px;flex-wrap:wrap">'+
+      '<button class="btn sm ghost" data-fseg-btn="week">Weekmenu aanpassen</button>'+
+      '<button class="btn sm ghost" data-fseg-btn="lijst">Boodschappenlijst</button></div></div>';
+
     SLOTS.forEach(sl=>{
       const inSlot = meals.filter(x=>x.r.slot===sl.id);
       h += '<div class="card"><div class="card-h"><h3>'+esc(sl.nm)+'</h3><span class="sub num">'+sl.t+'</span></div>';
@@ -2255,12 +2269,15 @@ function viewWeekmenu(){
     });
     return g;
   }
+  const leeg = weekLeeg(mon);
   let h = '<div class="card"><div class="card-h"><h2>Weekmenu</h2><span class="sub">'+esc(shortDate(mon))+' – '+esc(shortDate(addDays(mon,6)))+'</span></div>'+
     '<p class="small muted">Kies per dag wat je eet. De boodschappenlijst rekent daarna precies uit wat je nodig hebt, geen standaardlijst, maar jouw week.</p>'+
+    '<button class="btn pri wide" style="margin-top:11px" data-act="weekVul">'+
+      (leeg.gevuld===0 ? 'Vul de hele week in' : 'Vul de '+leeg.open+' lege plekken aan')+'</button>'+
+    '<p class="xs muted" style="margin-top:7px">Peil kiest per moment een gerecht dat past bij je kantoordagen en je caloriedoel. Daarna pas je met de plus- en kruisknoppen aan wat je liever anders hebt.</p>'+
     '<div class="row" style="margin-top:10px;flex-wrap:wrap">'+
     '<button class="btn sm ghost" data-act="weekShift" data-d="-7">← vorige</button>'+
     '<button class="btn sm ghost" data-act="weekShift" data-d="7">volgende →</button>'+
-    '<button class="btn sm" data-act="weekVul">Vul de lege plekken</button>'+
     '<button class="btn sm ghost" data-act="weekWis">Wis de week</button></div></div>';
   for(let i=0;i<7;i++){
     const dd = addDays(mon,i), meals = mealsOn(dd), tot = totalMacros(meals);
@@ -2286,6 +2303,13 @@ function viewWeekmenu(){
     macroBars({kcal:wk.kcal, p:wk.p, f:wk.f, c:wk.c})+
     '<button class="btn pri wide" style="margin-top:11px" data-fseg-btn="lijst">Boodschappenlijst van deze week</button></div>';
   return h;
+}
+// Hoeveel van de vijf eetmomenten staan er deze week al vast?
+function weekLeeg(mon){
+  let gevuld=0, totaal=0;
+  for(let i=0;i<7;i++){ const m=mealsOn(addDays(mon,i));
+    SLOTS.forEach(sl=>{ totaal++; if(m.some(x=>x.r.slot===sl.id)) gevuld++; }); }
+  return {gevuld, totaal, open:totaal-gevuld};
 }
 function weekMacros(mon){
   let t={kcal:0,p:0,f:0,c:0}, dagen=0;
@@ -3771,7 +3795,12 @@ document.addEventListener("click", e=>{
           (S.meals[dd] = S.meals[dd]||[]).push(beste.id);
       }
     }
-    save(); render(); say("Week ingevuld. Pas gerust aan wat je niet wilt."); return; }
+    // Vanaf het dagoverzicht spring je meteen naar de week, anders zie je niet wat er gebeurd is.
+    if(t.dataset.terug) FOOD_SEG = t.dataset.terug;
+    save(); render(); if(t.dataset.terug) window.scrollTo(0,0);
+    const na = weekLeeg(mondayOf(VIEW_DATE));
+    say("Week ingevuld: "+na.gevuld+" van de "+na.totaal+" eetmomenten staan vast. Pas gerust aan wat je niet wilt.");
+    return; }
   if(act==="kopieerLijst"){
     const per = weekLijst(mondayOf(VIEW_DATE));
     let txt = "Boodschappen week van "+shortDate(mondayOf(VIEW_DATE))+". Colruyt\n\n";
