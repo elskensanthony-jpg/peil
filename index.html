@@ -2483,6 +2483,10 @@ function viewWeekmenu(){
       (leeg.gevuld===0 ? 'Vul de hele week in' : 'Vul de '+leeg.open+' lege plekken aan')+'</button>'+
     '<p class="xs muted" style="margin-top:7px">Peil kiest per moment een gerecht dat past bij je kantoordagen en je caloriedoel. Daarna pas je met de plus- en kruisknoppen aan wat je liever anders hebt.</p>'+
     kookKiezer()+
+    '<div class="row" style="margin-top:11px;flex-wrap:wrap">'+
+    (kanDelenTekst() ? '<button class="btn sm" data-act="deelDiner">Avondeten doorsturen</button>' : '')+
+    '<button class="btn sm'+(kanDelenTekst()?" ghost":"")+'" data-act="kopieerDiner">Avondeten kopiëren</button></div>'+
+    '<p class="xs muted" style="margin-top:7px">Stuurt alleen de zeven avondmaaltijden door, met de ingrediënten en de bereiding, handig voor wie kookt.</p>'+
     '<div class="row" style="margin-top:10px;flex-wrap:wrap">'+
     '<button class="btn sm ghost" data-act="weekShift" data-d="-7">← vorige</button>'+
     '<button class="btn sm ghost" data-act="weekShift" data-d="7">volgende →</button>'+
@@ -2611,6 +2615,29 @@ function lijstTekst(mon){
   });
   txt += "\nLOS DAARVAN\n- Whey en creatine: online, om de twee maanden\n- Rode linzen: een pak in de kast\n";
   txt += "\n"+n+" producten.\n";
+  return txt;
+}
+// Wie kookt heeft niet je hele weekmenu nodig, alleen de avonden: welke dag,
+// welk gerecht, hoe lang en wat erin gaat.
+function dinerTekst(mon){
+  const maal = portieVan("diner");
+  let txt = "AVONDETEN PEIL\n"+shortDate(mon)+" tot "+shortDate(addDays(mon,6))+
+    (maal===2 ? "\nAlle porties voor twee" : "")+"\n";
+  let n = 0;
+  for(let i=0;i<7;i++){
+    const dd = addDays(mon,i);
+    const gerechten = mealsOn(dd).map(x=>x.r).filter(r=>r.slot==="diner");
+    txt += "\n"+DAYNM[parseISO(dd).getDay()].toUpperCase()+" "+shortDate(dd)+"\n";
+    if(!gerechten.length){ txt += "- nog niets gekozen\n"; continue; }
+    gerechten.forEach(r=>{
+      n++;
+      txt += r.nm + (r.min ? " · "+r.min+" min" : "") + "\n";
+      if(r.buiten){ txt += "  (buiten het schema, geen recept)\n"; return; }
+      ingLijst(r.items, maal).forEach(i=> txt += "  - "+i+"\n");
+      if(r.hoe) txt += "  "+r.hoe+"\n";
+    });
+  }
+  txt += "\n"+n+" avondmaaltijden.\n";
   return txt;
 }
 function kanDelenTekst(){ return typeof navigator!=="undefined" && !!navigator.share; }
@@ -4151,6 +4178,15 @@ document.addEventListener("click", e=>{
     const txt = lijstTekst(mondayOf(VIEW_DATE));
     navigator.clipboard.writeText(txt)
       .then(()=>say("Boodschappenlijst op je klembord gezet."),()=>say("Kopiëren lukte niet."));
+    return; }
+  if(act==="kopieerDiner"){
+    navigator.clipboard.writeText(dinerTekst(mondayOf(VIEW_DATE)))
+      .then(()=>say("Avondmenu op je klembord gezet."),()=>say("Kopiëren lukte niet."));
+    return; }
+  if(act==="deelDiner"){
+    const mon = mondayOf(VIEW_DATE);
+    navigator.share({title:"Avondeten "+shortDate(mon)+" tot "+shortDate(addDays(mon,6)), text:dinerTekst(mon)})
+      .catch(e=>{ if(e && e.name!=="AbortError") say("Doorsturen lukte niet. Gebruik Kopiëren."); });
     return; }
   if(act==="deelLijst"){
     const mon = mondayOf(VIEW_DATE);
