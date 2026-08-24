@@ -2297,6 +2297,10 @@ function viewHistory(){
 
 /* ---------------- 14. VIEW: VOEDING ---------------- */
 let FOOD_SEG = "dag";
+// Je weekmenu mag vooruit kijken; je logboek niet. Daarom telt het menu zijn eigen
+// weken, los van VIEW_DATE, dat nooit in de toekomst mag liggen.
+let MENU_WK = 0;
+function menuMaandag(){ return addDays(mondayOf(VIEW_DATE), 7*MENU_WK); }
 let PICK = null;   // {date, slot} tijdens het kiezen van een maaltijd
 // Voor wie kook je. Dit hoort bij je gegevens, niet bij je schermtoestand: het
 // bepaalt je boodschappenlijst en dat moet na een herstart nog kloppen.
@@ -2458,7 +2462,7 @@ function viewVoeding(){
 }
 // ---- weekmenu: kies per dag en per moment een recept ----
 function viewWeekmenu(){
-  const mon = mondayOf(VIEW_DATE);
+  const mon = menuMaandag();
   if(PICK){
     const sl = slotOf(PICK.slot);
     let lijst = REC.filter(r=>r.slot===PICK.slot);
@@ -2477,7 +2481,15 @@ function viewWeekmenu(){
     return g;
   }
   const leeg = weekLeeg(mon);
-  let h = '<div class="card"><div class="card-h"><h2>Weekmenu</h2><span class="sub">'+esc(shortDate(mon))+' – '+esc(shortDate(addDays(mon,6)))+'</span></div>'+
+  const andere = menuWeken().filter(x=>x.mon!==mon);
+  let h = '<div class="card"><div class="card-h"><h2>Weekmenu</h2><span class="sub">'+esc(shortDate(mon))+' – '+esc(shortDate(addDays(mon,6)))+
+    (weekLabel(mon) ? '<br>'+esc(weekLabel(mon)) : '')+(MENU_WK===0?'<br>deze week':'')+'</span></div>'+
+    (leeg.gevuld===0 && andere.length
+      ? '<div class="note acc"><b>Deze week is nog leeg, maar je menu is niet weg.</b> Je hebt al gekozen voor '+
+        andere.map(x=>'de week van '+esc(shortDate(x.mon))+' ('+x.n+' gerechten)').join(" en ")+'.'+
+        '<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">'+
+        andere.slice(0,3).map(x=>'<button class="btn sm" data-act="menuNaar" data-m="'+x.mon+'">Ga naar '+esc(shortDate(x.mon))+'</button>').join("")+
+        '</div></div>' : '')+
     '<p class="small muted">Kies per dag wat je eet. De boodschappenlijst rekent daarna precies uit wat je nodig hebt, geen standaardlijst, maar jouw week.</p>'+
     '<button class="btn pri wide" style="margin-top:11px" data-act="weekVul">'+
       (leeg.gevuld===0 ? 'Vul de hele week in' : 'Vul de '+leeg.open+' lege plekken aan')+'</button>'+
@@ -2534,6 +2546,20 @@ function viewWeekmenu(){
   return h;
 }
 // Hoeveel van de vijf eetmomenten staan er deze week al vast?
+// Welke andere weken hebben al een menu? Zonder dit lijkt een lege week op
+// verlies, terwijl je menu gewoon een week verderop staat.
+function menuWeken(){
+  const weken = {};
+  Object.keys(S.meals).forEach(d=>{ if((S.meals[d]||[]).length) weken[mondayOf(d)] = (weken[mondayOf(d)]||0)+S.meals[d].length; });
+  return Object.keys(weken).sort().map(m=>({mon:m, n:weken[m]}));
+}
+function weekLabel(mon){
+  const w = weekNo(mon);
+  if(w===null) return "";
+  if(w<1) return "voor je start";
+  if(w>24) return "na week 24";
+  return "programmaweek "+w+" van 24";
+}
 function weekLeeg(mon){
   let gevuld=0, totaal=0;
   for(let i=0;i<7;i++){ const m=mealsOn(addDays(mon,i));
@@ -2652,7 +2678,7 @@ function koopMaat(g, q){
 // Kruiden en flesjes koop je niet per week. Die worden één regel om na te kijken.
 const KAST_VOORRAAD = ["soja","gochujang","mosterd","kappertje","sesamolie","lijnzaad","rozijn","augurk","curry","kokos","cacao","chia","olijf"];
 function viewShopping(){
-  const mon = mondayOf(VIEW_DATE), perCat = weekLijst(mon);
+  const mon = menuMaandag(), perCat = weekLijst(mon);
   const heeft = Object.keys(perCat).length;
   let h = '<div class="card"><div class="card-h"><h2>Boodschappen</h2><span class="sub">'+esc(shortDate(mon))+' – '+esc(shortDate(addDays(mon,6)))+
     '<br>'+esc(KOOK.find(k=>k.id===kookVoor()).kort)+'</span></div>';
@@ -4128,11 +4154,15 @@ document.addEventListener("click", e=>{
     }
     return; }
   if(act==="delMealD"){ const a=S.meals[t.dataset.d]||[]; const i=a.indexOf(t.dataset.id); if(i>=0) a.splice(i,1); save(); render(); return; }
-  if(act==="weekShift"){ VIEW_DATE = addDays(mondayOf(VIEW_DATE), +t.dataset.d); if(VIEW_DATE>today()) VIEW_DATE=today(); render(); return; }
-  if(act==="weekWis"){ if(confirm("Het hele weekmenu wissen?")){ const m=mondayOf(VIEW_DATE);
+  if(act==="menuNaar"){
+    const doel = t.dataset.m, nu = mondayOf(VIEW_DATE);
+    MENU_WK = clamp(Math.round(daysBetween(nu, doel)/7), -12, 12);
+    render(); window.scrollTo(0,0); return; }
+  if(act==="weekShift"){ MENU_WK = clamp(MENU_WK + (+t.dataset.d)/7, -12, 12); render(); window.scrollTo(0,0); return; }
+  if(act==="weekWis"){ if(confirm("Het hele weekmenu wissen?")){ const m=menuMaandag();
       for(let i=0;i<7;i++) delete S.meals[addDays(m,i)]; save(); render(); } return; }
   if(act==="weekVul"){
-    const m = mondayOf(VIEW_DATE);
+    const m = menuMaandag();
     // Onthoud wat er deze week al staat, zodat de vuller niet twee keer hetzelfde kiest.
     const gebruikt = new Set();
     for(let i=0;i<7;i++) (S.meals[addDays(m,i)]||[]).forEach(id=>gebruikt.add(id));
@@ -4175,21 +4205,21 @@ document.addEventListener("click", e=>{
     say("Week ingevuld: "+na.gevuld+" van de "+na.totaal+" eetmomenten staan vast. Pas gerust aan wat je niet wilt.");
     return; }
   if(act==="kopieerLijst"){
-    const txt = lijstTekst(mondayOf(VIEW_DATE));
+    const txt = lijstTekst(menuMaandag());
     navigator.clipboard.writeText(txt)
       .then(()=>say("Boodschappenlijst op je klembord gezet."),()=>say("Kopiëren lukte niet."));
     return; }
   if(act==="kopieerDiner"){
-    navigator.clipboard.writeText(dinerTekst(mondayOf(VIEW_DATE)))
+    navigator.clipboard.writeText(dinerTekst(menuMaandag()))
       .then(()=>say("Avondmenu op je klembord gezet."),()=>say("Kopiëren lukte niet."));
     return; }
   if(act==="deelDiner"){
-    const mon = mondayOf(VIEW_DATE);
+    const mon = menuMaandag();
     navigator.share({title:"Avondeten "+shortDate(mon)+" tot "+shortDate(addDays(mon,6)), text:dinerTekst(mon)})
       .catch(e=>{ if(e && e.name!=="AbortError") say("Doorsturen lukte niet. Gebruik Kopiëren."); });
     return; }
   if(act==="deelLijst"){
-    const mon = mondayOf(VIEW_DATE);
+    const mon = menuMaandag();
     navigator.share({title:"Boodschappen "+shortDate(mon)+" tot "+shortDate(addDays(mon,6)), text:lijstTekst(mon)})
       .catch(e=>{ if(e && e.name!=="AbortError") say("Doorsturen lukte niet. Gebruik Kopiëren."); });
     return; }
@@ -4635,7 +4665,7 @@ function importCsv(file, input){
 const UI_KEY = "ijzer-touw-ui";
 function saveUI(){
   try{ sessionStorage.setItem(UI_KEY, JSON.stringify({
-    TRAIN_SEG, SESS_DATE, FOOD_SEG, PLAN_SEG, DAG_SEG, MEET_SEG,
+    TRAIN_SEG, SESS_DATE, FOOD_SEG, MENU_WK, PLAN_SEG, DAG_SEG, MEET_SEG,
     tech:[...OPEN_TECH], y:window.scrollY, REST, tab:S&&S.tab
   })); }catch(e){}
 }
@@ -4646,6 +4676,7 @@ function loadUI(){
   if(u.TRAIN_SEG) TRAIN_SEG = u.TRAIN_SEG;
   if(u.SESS_DATE) SESS_DATE = u.SESS_DATE;
   if(u.FOOD_SEG)  FOOD_SEG  = u.FOOD_SEG;
+  if(typeof u.MENU_WK==="number") MENU_WK = clamp(u.MENU_WK,-12,12);
   if(u.PLAN_SEG)  PLAN_SEG  = u.PLAN_SEG;
   if(u.DAG_SEG)   DAG_SEG   = u.DAG_SEG;
   if(u.MEET_SEG)  MEET_SEG  = (u.MEET_SEG==="meting" ? "nu" : u.MEET_SEG);
