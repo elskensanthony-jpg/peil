@@ -2616,6 +2616,20 @@ function weekLijst(mon){
   return perCat;
 }
 // De lijst als platte tekst: dezelfde inhoud voor de kopieerknop en de deelknop.
+// Achttien smaakmakers stonden wel in de bereidingen maar in geen enkele
+// ingrediëntenlijst, dus ze kwamen nooit op je boodschappenlijst terecht.
+const BASIS = [
+  ["Verse basis", "uien, knoflook, verse gember, citroen, limoen, platte peterselie, verse koriander"],
+  ["Kruidenkast", "komijn, gerookt paprikapoeder, chilivlokken, laurier, tijm, rozemarijn, kerriepoeder, bouillonblokjes"],
+  ["Zuur en vet",  "rode wijnazijn, olijfolie, boter, mosterd"]
+];
+function basisKaart(){
+  return '<div class="card"><div class="card-h"><h3>Vaste basis</h3><span class="sub">koop je niet elke week</span></div>'+
+    '<p class="small muted">Zonder deze smaakt geen enkel recept naar wat er staat. Ze gaan weken mee, dus je kijkt na wat op is in plaats van alles opnieuw te kopen.</p>'+
+    '<div class="scrollx"><table class="tbl" style="margin-top:8px"><tbody>'+
+    BASIS.map(r=>'<tr><td><b>'+esc(r[0])+'</b><div class="xs muted" style="margin-top:2px">'+esc(r[1])+'</div></td></tr>').join("")+
+    '</tbody></table></div></div>';
+}
 function kastRegel(rijen){
   const op = rijen.filter(([k])=>KAST_VOORRAAD.includes(k)).map(([k])=>ING[k].nm);
   if(!op.length) return "";
@@ -2639,6 +2653,7 @@ function lijstTekst(mon){
       if(op.length) txt += "- Kijk na wat op is: "+op.join(", ")+"\n";
     }
   });
+  BASIS.forEach(r=> txt += "\n"+r[0].toUpperCase()+"\n- "+r[1]+"\n");
   txt += "\nLOS DAARVAN\n- Whey en creatine: online, om de twee maanden\n- Rode linzen: een pak in de kast\n";
   txt += "\n"+n+" producten.\n";
   return txt;
@@ -2703,7 +2718,7 @@ function viewShopping(){
         }).join("")+'</tbody></table>'+
         (c==="kast" ? kastRegel(perCat[c]) : '')+'</div></div>';
     });
-    h += '<div class="card"><h3>Los daarvan</h3><p class="small muted" style="margin-top:5px">Whey en creatine bestel je online, ongeveer één keer per twee maanden. En zet een pak rode linzen in de kast, een handvol door de saus is de goedkoopste manier om je vezels op peil te houden.</p></div>';
+    h += basisKaart()+'<div class="card"><h3>Los daarvan</h3><p class="small muted" style="margin-top:5px">Whey en creatine bestel je online, ongeveer één keer per twee maanden. En zet een pak rode linzen in de kast, een handvol door de saus is de goedkoopste manier om je vezels op peil te houden.</p></div>';
     return h;
   }
   h += '<p class="small muted">Je weekmenu is nog leeg, dus er valt niets op te tellen. Vul eerst je week in, of gebruik de standaardlijst hieronder als vertrekpunt.</p>'+
@@ -3775,6 +3790,23 @@ const ING = {
   mais:       {nm:"maïs", cat:"kast",                            v:[77,2.4,1.7,12], m:GROEN},
   pompoenpit: {nm:"pompoenpitten", cat:"kast",                   v:[560,30,45,11],  m:HANDJE},
   chia:       {nm:"chiazaad", cat:"kast",                        v:[490,17,31,8],   m:LEPEL},
+  ui:         {nm:"ui", cat:"groenten", mv:"uien",              v:[40,1.1,0.1,9],   st:true},
+  sjalot:     {nm:"sjalot", cat:"groenten", mv:"sjalotten",      v:[72,2.5,0.1,17],  st:true},
+  knoflook:   {nm:"knoflook", cat:"groenten",                    v:[149,6.4,0.5,33], m:[3,"teen","tenen"], mzelf:true},
+  gember:     {nm:"verse gember", cat:"groenten",                v:[80,1.8,0.8,18]},
+  citroen:    {nm:"citroen", cat:"fruit", mv:"citroenen",        v:[29,1.1,0.3,9],   st:true},
+  limoen:     {nm:"limoen", cat:"fruit", mv:"limoenen",          v:[30,0.7,0.2,11],  st:true},
+  peterselie: {nm:"platte peterselie", cat:"groenten",           v:[36,3,0.8,6],     m:[10,"bosje","bosjes"], mzelf:true},
+  koriander:  {nm:"verse koriander", cat:"groenten",             v:[23,2.1,0.5,4],   m:[10,"bosje","bosjes"], mzelf:true},
+  boter:      {nm:"boter", cat:"zuivel",                         v:[740,0.7,82,0.6], m:LEPEL},
+  spek:       {nm:"gerookte spekblokjes (Boni)", cat:"vlees",    v:[250,16,20,0.5]},
+  chorizo:    {nm:"chorizoworst", cat:"vlees",                   v:[350,22,29,2]},
+  parmezaan:  {nm:"geraspte Grana Padano", cat:"zuivel",         v:[390,33,28,0]},
+  bier:       {nm:"bruin bier (Leffe of Rodenbach)", cat:"kast", v:[55,0.4,0,5],  pk:[330,"flesje","flesjes",true]},
+  peperkoek:  {nm:"peperkoek", cat:"granen",                     v:[330,5,2,70]},
+  honing:     {nm:"honing", cat:"kast",                          v:[320,0.3,0,80],   m:LEPEL},
+  tandoori:   {nm:"tandooripasta (Patak\'s)", cat:"kast",         v:[180,3,12,14],    m:LEPEL},
+  kruidenkaas:{nm:"kruidenkaas light", cat:"zuivel",             v:[240,10,20,3]},
   cacao:      {nm:"cacaopoeder", cat:"kast",                     v:[350,20,11,15],  m:LEPEL}
 };
 function macros(items){
